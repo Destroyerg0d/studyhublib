@@ -39,7 +39,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const fetchProfile = async (userId: string) => {
     try {
-      const { data: profileData, error } = await supabase
+      // Use type assertion to work around the missing table types
+      const { data: profileData, error } = await (supabase as any)
         .from('profiles')
         .select('*')
         .eq('id', userId)
