@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 
 const Verification = () => {
-  const { user } = useAuth();
+  const { profile } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aadharFront, setAadharFront] = useState<File | null>(null);
@@ -67,21 +67,21 @@ const Verification = () => {
       id: 2,
       title: "Document Upload",
       description: "Aadhar card front and back",
-      status: user?.verified ? "completed" : "pending",
+      status: profile?.verified ? "completed" : "pending",
       icon: CreditCard,
     },
     {
       id: 3,
       title: "Admin Review",
       description: "Document verification by admin",
-      status: user?.verified ? "completed" : "pending",
+      status: profile?.verified ? "completed" : "pending",
       icon: FileText,
     },
     {
       id: 4,
       title: "Account Activation",
       description: "Full access to all features",
-      status: user?.verified ? "completed" : "pending",
+      status: profile?.verified ? "completed" : "pending",
       icon: CheckCircle,
     },
   ];
@@ -107,20 +107,20 @@ const Verification = () => {
   return (
     <div className="space-y-6">
       {/* Verification Status */}
-      <Card className={user?.verified ? "bg-green-50 border-green-200" : "bg-yellow-50 border-yellow-200"}>
+      <Card className={profile?.verified ? "bg-green-50 border-green-200" : "bg-yellow-50 border-yellow-200"}>
         <CardHeader>
           <div className="flex items-center">
-            {user?.verified ? (
+            {profile?.verified ? (
               <CheckCircle className="h-6 w-6 text-green-600 mr-3" />
             ) : (
               <AlertCircle className="h-6 w-6 text-yellow-600 mr-3" />
             )}
             <div>
-              <CardTitle className={user?.verified ? "text-green-900" : "text-yellow-900"}>
-                {user?.verified ? "Account Verified" : "Verification Required"}
+              <CardTitle className={profile?.verified ? "text-green-900" : "text-yellow-900"}>
+                {profile?.verified ? "Account Verified" : "Verification Required"}
               </CardTitle>
-              <CardDescription className={user?.verified ? "text-green-700" : "text-yellow-700"}>
-                {user?.verified 
+              <CardDescription className={profile?.verified ? "text-green-700" : "text-yellow-700"}>
+                {profile?.verified 
                   ? "Your account is fully verified and active"
                   : "Complete verification to access all features"
                 }
@@ -129,8 +129,8 @@ const Verification = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <Badge className={user?.verified ? "bg-green-500 text-white" : "bg-yellow-500 text-white"}>
-            {user?.verified ? "Verified" : "Pending Verification"}
+          <Badge className={profile?.verified ? "bg-green-500 text-white" : "bg-yellow-500 text-white"}>
+            {profile?.verified ? "Verified" : "Pending Verification"}
           </Badge>
         </CardContent>
       </Card>
@@ -169,7 +169,7 @@ const Verification = () => {
       </Card>
 
       {/* Verification Form */}
-      {!user?.verified && (
+      {!profile?.verified && (
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Personal Details */}
           <Card>
@@ -183,11 +183,11 @@ const Verification = () => {
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="fullname">Full Name</Label>
-                  <Input id="fullname" defaultValue={user?.name} required />
+                  <Input id="fullname" defaultValue={profile?.name || ''} required />
                 </div>
                 <div>
                   <Label htmlFor="email">Email Address</Label>
-                  <Input id="email" type="email" defaultValue={user?.email} disabled />
+                  <Input id="email" type="email" defaultValue={profile?.email || ''} disabled />
                 </div>
                 <div>
                   <Label htmlFor="phone">Phone Number</Label>

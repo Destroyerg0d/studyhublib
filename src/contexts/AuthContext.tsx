@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fetch user profile
+          // Fetch user profile with a setTimeout to prevent potential deadlocks
           setTimeout(async () => {
             try {
               const { data: profileData, error } = await supabase
@@ -57,11 +57,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               
               if (error) {
                 console.error('Error fetching profile:', error);
+                // Create a default profile if it doesn't exist
+                setProfile({
+                  id: session.user.id,
+                  email: session.user.email || '',
+                  name: session.user.user_metadata?.name || 'User',
+                  role: 'student',
+                  verified: false
+                });
               } else {
                 setProfile(profileData);
               }
             } catch (error) {
               console.error('Error fetching profile:', error);
+              // Fallback profile
+              setProfile({
+                id: session.user.id,
+                email: session.user.email || '',
+                name: session.user.user_metadata?.name || 'User',
+                role: 'student',
+                verified: false
+              });
             }
           }, 0);
         } else {

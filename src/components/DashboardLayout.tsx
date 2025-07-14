@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
-  const { user, logout } = useAuth();
+  const { profile, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -96,12 +96,12 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 
         <div className="absolute bottom-4 left-4 right-4">
           <div className="bg-gray-100 rounded-lg p-3 mb-4">
-            <p className="text-sm font-medium">{user?.name}</p>
-            <p className="text-xs text-gray-600">{user?.email}</p>
+            <p className="text-sm font-medium">{profile?.name || 'User'}</p>
+            <p className="text-xs text-gray-600">{profile?.email}</p>
             <div className="flex items-center mt-2">
-              <div className={`w-2 h-2 rounded-full mr-2 ${user?.verified ? 'bg-green-500' : 'bg-yellow-500'}`} />
+              <div className={`w-2 h-2 rounded-full mr-2 ${profile?.verified ? 'bg-green-500' : 'bg-yellow-500'}`} />
               <span className="text-xs">
-                {user?.verified ? 'Verified' : 'Pending Verification'}
+                {profile?.verified ? 'Verified' : 'Pending Verification'}
               </span>
             </div>
           </div>
@@ -137,7 +137,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
             </div>
             
             <div className="flex items-center space-x-3">
-              {!user?.verified && (
+              {!profile?.verified && (
                 <Link to="/dashboard/verification">
                   <Button size="sm" variant="outline" className="text-yellow-600 border-yellow-600">
                     Complete Verification
@@ -145,7 +145,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                 </Link>
               )}
               <div className="hidden sm:block">
-                <p className="text-sm text-gray-600">Welcome, {user?.name}</p>
+                <p className="text-sm text-gray-600">Welcome, {profile?.name || 'User'}</p>
               </div>
             </div>
           </div>
