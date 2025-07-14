@@ -58,6 +58,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const createProfile = async (user: User) => {
+    try {
+      const profileData = {
+        id: user.id,
+        email: user.email || '',
+        name: user.user_metadata?.name || 'User',
+        role: user.email === 'admin@studyhub.com' ? 'admin' : 'student',
+        verified: user.email === 'admin@studyhub.com'
+      };
+
+      const { error } = await (supabase as any)
+        .from('profiles')
+        .insert(profileData);
+
+      if (error) {
+        console.error('Error creating profile:', error);
+        return null;
+      }
+
+      return profileData;
+    } catch (error) {
+      console.error('Error creating profile:', error);
+      return null;
+    }
+  };
+
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -69,18 +95,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (session?.user) {
           // Fetch user profile with a setTimeout to prevent potential deadlocks
           setTimeout(async () => {
-            const profileData = await fetchProfile(session.user.id);
+            let profileData = await fetchProfile(session.user.id);
+            
+            // If no profile exists, create one
+            if (!profileData) {
+              profileData = await createProfile(session.user);
+            }
             
             if (profileData) {
               setProfile(profileData);
             } else {
-              // Create a default profile if it doesn't exist
+              // Create a default profile if database operations fail
               setProfile({
                 id: session.user.id,
                 email: session.user.email || '',
                 name: session.user.user_metadata?.name || 'User',
-                role: 'student',
-                verified: false
+                role: session.user.email === 'admin@studyhub.com' ? 'admin' : 'student',
+                verified: session.user.email === 'admin@studyhub.com'
               });
             }
           }, 0);
@@ -105,23 +136,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
+      console.log('Attempting login for:', email);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
+        console.error('Login error:', error);
         return { success: false, error: error.message };
       }
 
+      console.log('Login successful for:', email);
       return { success: true };
     } catch (error) {
+      console.error('Login catch error:', error);
       return { success: false, error: 'An unexpected error occurred' };
     }
   };
 
   const register = async (email: string, password: string, name: string): Promise<{ success: boolean; error?: string }> => {
     try {
+      console.log('Attempting registration for:', email);
       const redirectUrl = `${window.location.origin}/`;
       
       const { data, error } = await supabase.auth.signUp({
@@ -136,11 +172,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       if (error) {
+        console.error('Registration error:', error);
         return { success: false, error: error.message };
       }
 
+      console.log('Registration successful for:', email);
       return { success: true };
     } catch (error) {
+      console.error('Registration catch error:', error);
       return { success: false, error: 'An unexpected error occurred' };
     }
   };

@@ -32,6 +32,8 @@ const Auth = () => {
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
 
+    console.log('Login form submitted with email:', email);
+
     try {
       const result = await login(email, password);
       if (result.success) {
@@ -41,13 +43,15 @@ const Auth = () => {
         });
         navigate('/dashboard');
       } else {
+        console.error('Login failed:', result.error);
         toast({
           title: "Login failed",
-          description: result.error || "Invalid email or password.",
+          description: result.error || "Invalid email or password. Please check your credentials and try again.",
           variant: "destructive",
         });
       }
     } catch (error) {
+      console.error('Login error:', error);
       toast({
         title: "Error",
         description: "Something went wrong. Please try again.",
@@ -66,16 +70,43 @@ const Auth = () => {
     const name = formData.get('name') as string;
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
+    const confirmPassword = formData.get('confirmPassword') as string;
+
+    // Basic validation
+    if (password !== confirmPassword) {
+      toast({
+        title: "Password mismatch",
+        description: "Please make sure both passwords match.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    console.log('Registration form submitted with email:', email);
 
     try {
       const result = await register(email, password, name);
       if (result.success) {
         toast({
           title: "Registration successful!",
-          description: "Please check your email to verify your account.",
+          description: "Please check your email to verify your account before logging in.",
         });
-        // Don't redirect immediately, let them verify email first
+        // Switch to login tab after successful registration
+        const loginTab = document.querySelector('[value="login"]') as HTMLElement;
+        loginTab?.click();
       } else {
+        console.error('Registration failed:', result.error);
         toast({
           title: "Registration failed",
           description: result.error || "Please check your information and try again.",
@@ -83,6 +114,7 @@ const Auth = () => {
         });
       }
     } catch (error) {
+      console.error('Registration error:', error);
       toast({
         title: "Error",
         description: "Something went wrong. Please try again.",
@@ -121,21 +153,23 @@ const Auth = () => {
               <TabsContent value="login">
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="login-email">Email</Label>
                     <Input
-                      id="email"
+                      id="login-email"
                       name="email"
                       type="email"
                       placeholder="your@email.com"
+                      defaultValue="admin@studyhub.com"
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
+                    <Label htmlFor="login-password">Password</Label>
                     <Input
-                      id="password"
+                      id="login-password"
                       name="password"
                       type="password"
+                      defaultValue="admin123"
                       required
                     />
                   </div>
@@ -155,9 +189,9 @@ const Auth = () => {
               <TabsContent value="register">
                 <form onSubmit={handleRegister} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Full Name</Label>
+                    <Label htmlFor="register-name">Full Name</Label>
                     <Input
-                      id="name"
+                      id="register-name"
                       name="name"
                       type="text"
                       placeholder="Your full name"
@@ -165,9 +199,9 @@ const Auth = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="register-email">Email</Label>
                     <Input
-                      id="email"
+                      id="register-email"
                       name="email"
                       type="email"
                       placeholder="your@email.com"
@@ -175,11 +209,22 @@ const Auth = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
+                    <Label htmlFor="register-password">Password</Label>
                     <Input
-                      id="password"
+                      id="register-password"
                       name="password"
                       type="password"
+                      placeholder="At least 6 characters"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="register-confirm-password">Confirm Password</Label>
+                    <Input
+                      id="register-confirm-password"
+                      name="confirmPassword"
+                      type="password"
+                      placeholder="Confirm your password"
                       required
                     />
                   </div>

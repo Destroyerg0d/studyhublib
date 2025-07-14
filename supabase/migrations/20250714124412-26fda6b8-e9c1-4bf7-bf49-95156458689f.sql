@@ -63,41 +63,25 @@ CREATE OR REPLACE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- Create admin user (you can change this email to your preferred admin email)
-INSERT INTO auth.users (
-  instance_id,
-  id,
-  aud,
-  role,
-  email,
-  encrypted_password,
-  email_confirmed_at,
-  recovery_sent_at,
-  last_sign_in_at,
-  raw_app_meta_data,
-  raw_user_meta_data,
-  created_at,
-  updated_at,
-  confirmation_token,
-  email_change,
-  email_change_token_new,
-  recovery_token
-) VALUES (
-  '00000000-0000-0000-0000-000000000000',
-  gen_random_uuid(),
-  'authenticated',
-  'authenticated',
-  'admin@studyhub.com',
-  crypt('admin123', gen_salt('bf')),
-  NOW(),
-  NOW(),
-  NOW(),
-  '{"provider":"email","providers":["email"]}',
-  '{"name":"Admin User"}',
-  NOW(),
-  NOW(),
-  '',
-  '',
-  '',
-  ''
-) ON CONFLICT (email) DO NOTHING;
+-- Insert admin user directly using Supabase auth (this will work better than manual insertion)
+-- Note: The admin signup should be done through the application or Supabase dashboard
+-- But for testing, we'll create a profile entry that can be updated when the admin signs up
+
+-- Create admin profile that will be linked when admin@studyhub.com signs up
+DO $$
+DECLARE
+    admin_user_id UUID;
+BEGIN
+    -- Try to find existing admin user
+    SELECT id INTO admin_user_id FROM auth.users WHERE email = 'admin@studyhub.com';
+    
+    -- If admin user exists, create/update their profile
+    IF admin_user_id IS NOT NULL THEN
+        INSERT INTO public.profiles (id, email, name, role, verified)
+        VALUES (admin_user_id, 'admin@studyhub.com', 'Admin User', 'admin', true)
+        ON CONFLICT (id) DO UPDATE SET
+            role = 'admin',
+            verified = true,
+            name = 'Admin User';
+    END IF;
+END $$;
