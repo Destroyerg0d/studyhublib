@@ -37,6 +37,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data: profileData, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching profile:', error);
+        return null;
+      }
+      
+      return profileData;
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      return null;
+    }
+  };
+
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -48,29 +68,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (session?.user) {
           // Fetch user profile with a setTimeout to prevent potential deadlocks
           setTimeout(async () => {
-            try {
-              const { data: profileData, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', session.user.id)
-                .single();
-              
-              if (error) {
-                console.error('Error fetching profile:', error);
-                // Create a default profile if it doesn't exist
-                setProfile({
-                  id: session.user.id,
-                  email: session.user.email || '',
-                  name: session.user.user_metadata?.name || 'User',
-                  role: 'student',
-                  verified: false
-                });
-              } else {
-                setProfile(profileData);
-              }
-            } catch (error) {
-              console.error('Error fetching profile:', error);
-              // Fallback profile
+            const profileData = await fetchProfile(session.user.id);
+            
+            if (profileData) {
+              setProfile(profileData);
+            } else {
+              // Create a default profile if it doesn't exist
               setProfile({
                 id: session.user.id,
                 email: session.user.email || '',
