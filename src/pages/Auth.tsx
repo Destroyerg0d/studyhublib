@@ -9,12 +9,20 @@ import { BookOpen, ArrowLeft } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useEffect } from "react";
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const { login, register } = useAuth();
+  const { login, register, user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -25,8 +33,8 @@ const Auth = () => {
     const password = formData.get('password') as string;
 
     try {
-      const success = await login(email, password);
-      if (success) {
+      const result = await login(email, password);
+      if (result.success) {
         toast({
           title: "Welcome back!",
           description: "You have been successfully logged in.",
@@ -35,7 +43,7 @@ const Auth = () => {
       } else {
         toast({
           title: "Login failed",
-          description: "Invalid email or password.",
+          description: result.error || "Invalid email or password.",
           variant: "destructive",
         });
       }
@@ -60,17 +68,17 @@ const Auth = () => {
     const password = formData.get('password') as string;
 
     try {
-      const success = await register(email, password, name);
-      if (success) {
+      const result = await register(email, password, name);
+      if (result.success) {
         toast({
           title: "Registration successful!",
-          description: "Your account has been created. Please complete verification.",
+          description: "Please check your email to verify your account.",
         });
-        navigate('/dashboard');
+        // Don't redirect immediately, let them verify email first
       } else {
         toast({
           title: "Registration failed",
-          description: "Please check your information and try again.",
+          description: result.error || "Please check your information and try again.",
           variant: "destructive",
         });
       }
@@ -139,8 +147,7 @@ const Auth = () => {
                     {isLoading ? "Signing in..." : "Sign In"}
                   </Button>
                   <div className="text-sm text-gray-600 text-center">
-                    Demo: admin@studyhub.com / admin123 (Admin)<br />
-                    Or use any email/password for student access
+                    Demo: admin@studyhub.com / admin123 (Admin)
                   </div>
                 </form>
               </TabsContent>
