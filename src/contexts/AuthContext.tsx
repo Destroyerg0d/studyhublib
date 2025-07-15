@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -39,7 +38,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const fetchProfile = async (userId: string) => {
     try {
-      // Use type assertion to work around the missing table types
+      console.log('Fetching profile for user:', userId);
       const { data: profileData, error } = await (supabase as any)
         .from('profiles')
         .select('*')
@@ -51,6 +50,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return null;
       }
       
+      console.log('Profile fetched:', profileData);
       return profileData;
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -60,12 +60,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const createProfile = async (user: User) => {
     try {
+      console.log('Creating profile for user:', user.email);
       const profileData = {
         id: user.id,
         email: user.email || '',
-        name: user.user_metadata?.name || 'User',
-        role: user.email === 'admin@studyhub.com' ? 'admin' : 'student',
-        verified: user.email === 'admin@studyhub.com'
+        name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
+        role: user.email === 'admin@studyhub.com' || user.email === 'hossenbiddoth@gmail.com' ? 'admin' : 'student',
+        verified: user.email === 'admin@studyhub.com' || user.email === 'hossenbiddoth@gmail.com'
       };
 
       const { error } = await (supabase as any)
@@ -77,6 +78,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return null;
       }
 
+      console.log('Profile created:', profileData);
       return profileData;
     } catch (error) {
       console.error('Error creating profile:', error);
@@ -99,36 +101,40 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             
             // If no profile exists, create one
             if (!profileData) {
+              console.log('No profile found, creating new profile');
               profileData = await createProfile(session.user);
             }
             
             if (profileData) {
+              console.log('Setting profile:', profileData);
               setProfile(profileData);
             } else {
               // Create a default profile if database operations fail
-              setProfile({
+              const defaultProfile = {
                 id: session.user.id,
                 email: session.user.email || '',
-                name: session.user.user_metadata?.name || 'User',
-                role: session.user.email === 'admin@studyhub.com' ? 'admin' : 'student',
-                verified: session.user.email === 'admin@studyhub.com'
-              });
+                name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
+                role: (session.user.email === 'admin@studyhub.com' || session.user.email === 'hossenbiddoth@gmail.com') ? 'admin' : 'student',
+                verified: session.user.email === 'admin@studyhub.com' || session.user.email === 'hossenbiddoth@gmail.com'
+              } as Profile;
+              console.log('Setting default profile:', defaultProfile);
+              setProfile(defaultProfile);
             }
-          }, 0);
+            setIsLoading(false);
+          }, 100);
         } else {
           setProfile(null);
+          setIsLoading(false);
         }
-        
-        setIsLoading(false);
       }
     );
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       console.log('Initial session check:', session?.user?.email);
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
+      if (!session) {
+        setIsLoading(false);
+      }
     });
 
     return () => subscription.unsubscribe();

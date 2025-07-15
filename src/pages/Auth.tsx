@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,16 +12,21 @@ import { useEffect } from "react";
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const { login, register, user } = useAuth();
+  const { login, register, user, profile } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   // Redirect if already logged in
   useEffect(() => {
-    if (user) {
-      navigate('/dashboard');
+    if (user && profile) {
+      console.log('User already logged in, redirecting based on role:', profile.role);
+      if (profile.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
     }
-  }, [user, navigate]);
+  }, [user, profile, navigate]);
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -41,7 +45,7 @@ const Auth = () => {
           title: "Welcome back!",
           description: "You have been successfully logged in.",
         });
-        navigate('/dashboard');
+        // Navigation will be handled by the useEffect above
       } else {
         console.error('Login failed:', result.error);
         toast({
@@ -180,8 +184,10 @@ const Auth = () => {
                   >
                     {isLoading ? "Signing in..." : "Sign In"}
                   </Button>
-                  <div className="text-sm text-gray-600 text-center">
-                    Demo: admin@studyhub.com / admin123 (Admin)
+                  <div className="text-sm text-gray-600 text-center space-y-1">
+                    <div>Demo Accounts:</div>
+                    <div>admin@studyhub.com / admin123 (Admin)</div>
+                    <div>hossenbiddoth@gmail.com (Admin)</div>
                   </div>
                 </form>
               </TabsContent>
