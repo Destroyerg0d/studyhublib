@@ -9,6 +9,14 @@ interface Profile {
   name: string;
   role: 'student' | 'admin';
   verified: boolean;
+  address: string | null;
+  phone: string | null;
+  date_of_birth: string | null;
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
+  emergency_contact_relation: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 interface AuthContextType {
@@ -67,7 +75,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         email: user.email || '',
         name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
         role: user.email === 'admin@studyhub.com' || user.email === 'hossenbiddoth@gmail.com' ? 'admin' : 'student',
-        verified: user.email === 'admin@studyhub.com' || user.email === 'hossenbiddoth@gmail.com'
+        verified: user.email === 'admin@studyhub.com' || user.email === 'hossenbiddoth@gmail.com',
+        address: null,
+        phone: null,
+        date_of_birth: null,
+        emergency_contact_name: null,
+        emergency_contact_phone: null,
+        emergency_contact_relation: null
       };
 
       const { error } = await supabase
