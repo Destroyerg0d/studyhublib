@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,6 +9,12 @@ interface Profile {
   name: string;
   role: 'student' | 'admin';
   verified: boolean;
+  phone?: string;
+  address?: string;
+  date_of_birth?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  emergency_contact_relation?: string;
 }
 
 interface AuthContextType {
@@ -18,6 +25,7 @@ interface AuthContextType {
   register: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   isLoading: boolean;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -39,7 +47,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const fetchProfile = async (userId: string) => {
     try {
       console.log('Fetching profile for user:', userId);
-      const { data: profileData, error } = await (supabase as any)
+      const { data: profileData, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
@@ -69,7 +77,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         verified: user.email === 'admin@studyhub.com' || user.email === 'hossenbiddoth@gmail.com'
       };
 
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('profiles')
         .insert(profileData);
 
@@ -83,6 +91,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (error) {
       console.error('Error creating profile:', error);
       return null;
+    }
+  };
+
+  const refreshProfile = async () => {
+    if (user) {
+      const profileData = await fetchProfile(user.id);
+      if (profileData) {
+        setProfile(profileData);
+      }
     }
   };
 
@@ -139,6 +156,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Set up real-time subscription for profile updates
+  useEffect(() => {
+    if (user?.id) {
+      const profileSubscription = supabase
+        .channel('profile-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'profiles',
+            filter: `id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('Profile updated via realtime:', payload.new);
+            setProfile(payload.new as Profile);
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(profileSubscription);
+      };
+    }
+  }, [user?.id]);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
@@ -206,7 +249,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       login, 
       register, 
       logout, 
-      isLoading 
+      isLoading,
+      refreshProfile
     }}>
       {children}
     </AuthContext.Provider>

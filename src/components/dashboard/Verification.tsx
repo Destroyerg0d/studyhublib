@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import {
   CheckCircle,
   Upload,
@@ -20,39 +21,185 @@ import {
 } from "lucide-react";
 
 const Verification = () => {
-  const { profile } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aadharFront, setAadharFront] = useState<File | null>(null);
   const [aadharBack, setAadharBack] = useState<File | null>(null);
+  const [verificationRequest, setVerificationRequest] = useState<any>(null);
+  const [formData, setFormData] = useState({
+    fullname: profile?.name || '',
+    phone: profile?.phone || '',
+    dob: profile?.date_of_birth || '',
+    address: profile?.address || '',
+    emergencyName: profile?.emergency_contact_name || '',
+    emergencyPhone: profile?.emergency_contact_phone || '',
+    relationship: profile?.emergency_contact_relation || ''
+  });
+
+  // Fetch existing verification request
+  useEffect(() => {
+    const fetchVerificationRequest = async () => {
+      if (!profile?.id) return;
+
+      const { data, error } = await supabase
+        .from('verification_requests')
+        .select('*')
+        .eq('user_id', profile.id)
+        .single();
+
+      if (data) {
+        setVerificationRequest(data);
+      }
+    };
+
+    fetchVerificationRequest();
+
+    // Set up real-time subscription for verification updates
+    const subscription = supabase
+      .channel('verification-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'verification_requests',
+          filter: `user_id=eq.${profile?.id}`
+        },
+        (payload) => {
+          console.log('Verification request updated:', payload);
+          if (payload.new) {
+            setVerificationRequest(payload.new);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, [profile?.id]);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>, type: 'front' | 'back') => {
     const file = event.target.files?.[0];
     if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({
+          title: "File too large",
+          description: "Please select a file smaller than 5MB.",
+          variant: "destructive"
+        });
+        return;
+      }
+
       if (type === 'front') {
         setAadharFront(file);
       } else {
         setAadharBack(file);
       }
       toast({
-        title: "File uploaded",
-        description: `Aadhar ${type} side uploaded successfully.`,
+        title: "File selected",
+        description: `Aadhar ${type} side selected successfully.`,
       });
     }
   };
 
+  const uploadFile = async (file: File, fileName: string) => {
+    const { data, error } = await supabase.storage
+      .from('verification-docs')
+      .upload(`${profile?.id}/${fileName}`, file, {
+        cacheControl: '3600',
+        upsert: true
+      });
+
+    if (error) {
+      console.error('Upload error:', error);
+      throw error;
+    }
+
+    return data.path;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!profile?.id) return;
+
     setIsSubmitting(true);
 
-    // Simulate verification submission
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      // Update profile with form data
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          name: formData.fullname,
+          phone: formData.phone,
+          date_of_birth: formData.dob,
+          address: formData.address,
+          emergency_contact_name: formData.emergencyName,
+          emergency_contact_phone: formData.emergencyPhone,
+          emergency_contact_relation: formData.relationship,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', profile.id);
+
+      if (profileError) throw profileError;
+
+      // Upload files if provided
+      let aadharFrontUrl = verificationRequest?.aadhar_front_url;
+      let aadharBackUrl = verificationRequest?.aadhar_back_url;
+
+      if (aadharFront) {
+        aadharFrontUrl = await uploadFile(aadharFront, `aadhar_front_${Date.now()}.${aadharFront.name.split('.').pop()}`);
+      }
+
+      if (aadharBack) {
+        aadharBackUrl = await uploadFile(aadharBack, `aadhar_back_${Date.now()}.${aadharBack.name.split('.').pop()}`);
+      }
+
+      // Create or update verification request
+      const verificationData = {
+        user_id: profile.id,
+        status: 'pending',
+        aadhar_front_url: aadharFrontUrl,
+        aadhar_back_url: aadharBackUrl,
+        updated_at: new Date().toISOString()
+      };
+
+      if (verificationRequest) {
+        // Update existing request
+        const { error } = await supabase
+          .from('verification_requests')
+          .update(verificationData)
+          .eq('id', verificationRequest.id);
+
+        if (error) throw error;
+      } else {
+        // Create new request
+        const { error } = await supabase
+          .from('verification_requests')
+          .insert(verificationData);
+
+        if (error) throw error;
+      }
+
+      // Refresh profile data
+      await refreshProfile();
+
       toast({
         title: "Verification submitted!",
         description: "Your documents have been submitted for review. You'll be notified once verified.",
       });
-    }, 2000);
+
+    } catch (error) {
+      console.error('Verification submission error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to submit verification. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const verificationSteps = [
@@ -67,14 +214,15 @@ const Verification = () => {
       id: 2,
       title: "Document Upload",
       description: "Aadhar card front and back",
-      status: profile?.verified ? "completed" : "pending",
+      status: verificationRequest ? "completed" : "pending",
       icon: CreditCard,
     },
     {
       id: 3,
       title: "Admin Review",
       description: "Document verification by admin",
-      status: profile?.verified ? "completed" : "pending",
+      status: verificationRequest?.status === 'approved' ? "completed" : 
+              verificationRequest?.status === 'rejected' ? "failed" : "pending",
       icon: FileText,
     },
     {
@@ -130,8 +278,15 @@ const Verification = () => {
         </CardHeader>
         <CardContent>
           <Badge className={profile?.verified ? "bg-green-500 text-white" : "bg-yellow-500 text-white"}>
-            {profile?.verified ? "Verified" : "Pending Verification"}
+            {profile?.verified ? "Verified" : `Status: ${verificationRequest?.status || 'Not Submitted'}`}
           </Badge>
+          {verificationRequest?.status === 'rejected' && verificationRequest.rejection_reason && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-800 text-sm">
+                <strong>Rejection Reason:</strong> {verificationRequest.rejection_reason}
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -150,7 +305,8 @@ const Verification = () => {
                   <div className={`
                     w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
                     ${step.status === 'completed' ? 'bg-green-500 text-white' : 
-                      step.status === 'pending' ? 'bg-yellow-500 text-white' : 'bg-gray-300 text-gray-600'}
+                      step.status === 'pending' ? 'bg-yellow-500 text-white' : 
+                      step.status === 'failed' ? 'bg-red-500 text-white' : 'bg-gray-300 text-gray-600'}
                   `}>
                     {getStepIcon(step.status)}
                   </div>
@@ -169,7 +325,7 @@ const Verification = () => {
       </Card>
 
       {/* Verification Form */}
-      {!profile?.verified && (
+      {(!profile?.verified && (!verificationRequest || verificationRequest.status === 'rejected')) && (
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Personal Details */}
           <Card>
@@ -183,24 +339,48 @@ const Verification = () => {
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="fullname">Full Name</Label>
-                  <Input id="fullname" defaultValue={profile?.name || ''} required />
+                  <Input 
+                    id="fullname" 
+                    value={formData.fullname}
+                    onChange={(e) => setFormData({...formData, fullname: e.target.value})}
+                    required 
+                  />
                 </div>
                 <div>
                   <Label htmlFor="email">Email Address</Label>
-                  <Input id="email" type="email" defaultValue={profile?.email || ''} disabled />
+                  <Input id="email" type="email" value={profile?.email || ''} disabled />
                 </div>
                 <div>
                   <Label htmlFor="phone">Phone Number</Label>
-                  <Input id="phone" type="tel" placeholder="+91 12345 67890" required />
+                  <Input 
+                    id="phone" 
+                    type="tel" 
+                    placeholder="+91 12345 67890"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                    required 
+                  />
                 </div>
                 <div>
                   <Label htmlFor="dob">Date of Birth</Label>
-                  <Input id="dob" type="date" required />
+                  <Input 
+                    id="dob" 
+                    type="date"
+                    value={formData.dob}
+                    onChange={(e) => setFormData({...formData, dob: e.target.value})}
+                    required 
+                  />
                 </div>
               </div>
               <div>
                 <Label htmlFor="address">Complete Address</Label>
-                <Textarea id="address" placeholder="Enter your complete address" required />
+                <Textarea 
+                  id="address" 
+                  placeholder="Enter your complete address"
+                  value={formData.address}
+                  onChange={(e) => setFormData({...formData, address: e.target.value})}
+                  required 
+                />
               </div>
             </CardContent>
           </Card>
@@ -227,7 +407,7 @@ const Verification = () => {
                       accept="image/*"
                       onChange={(e) => handleFileUpload(e, 'front')}
                       className="hidden"
-                      required
+                      required={!verificationRequest?.aadhar_front_url}
                     />
                     <Button
                       type="button"
@@ -236,7 +416,8 @@ const Verification = () => {
                       onClick={() => document.getElementById('aadhar-front')?.click()}
                     >
                       <Upload className="h-4 w-4 mr-2" />
-                      {aadharFront ? aadharFront.name : "Upload Front Side"}
+                      {aadharFront ? aadharFront.name : 
+                       verificationRequest?.aadhar_front_url ? "Replace Front Side" : "Upload Front Side"}
                     </Button>
                   </div>
                 </div>
@@ -249,7 +430,7 @@ const Verification = () => {
                       accept="image/*"
                       onChange={(e) => handleFileUpload(e, 'back')}
                       className="hidden"
-                      required
+                      required={!verificationRequest?.aadhar_back_url}
                     />
                     <Button
                       type="button"
@@ -258,7 +439,8 @@ const Verification = () => {
                       onClick={() => document.getElementById('aadhar-back')?.click()}
                     >
                       <Upload className="h-4 w-4 mr-2" />
-                      {aadharBack ? aadharBack.name : "Upload Back Side"}
+                      {aadharBack ? aadharBack.name : 
+                       verificationRequest?.aadhar_back_url ? "Replace Back Side" : "Upload Back Side"}
                     </Button>
                   </div>
                 </div>
@@ -272,7 +454,7 @@ const Verification = () => {
                     <ul className="mt-1 space-y-1">
                       <li>• Images should be clear and readable</li>
                       <li>• File size should be less than 5MB</li>
-                      <li>• Accepted formats: JPG, PNG, PDF</li>
+                      <li>• Accepted formats: JPG, PNG</li>
                       <li>• Ensure all details are visible</li>
                     </ul>
                   </div>
@@ -293,15 +475,34 @@ const Verification = () => {
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="emergency-name">Contact Name</Label>
-                  <Input id="emergency-name" placeholder="Parent/Guardian name" required />
+                  <Input 
+                    id="emergency-name" 
+                    placeholder="Parent/Guardian name"
+                    value={formData.emergencyName}
+                    onChange={(e) => setFormData({...formData, emergencyName: e.target.value})}
+                    required 
+                  />
                 </div>
                 <div>
                   <Label htmlFor="emergency-phone">Contact Phone</Label>
-                  <Input id="emergency-phone" type="tel" placeholder="+91 12345 67890" required />
+                  <Input 
+                    id="emergency-phone" 
+                    type="tel" 
+                    placeholder="+91 12345 67890"
+                    value={formData.emergencyPhone}
+                    onChange={(e) => setFormData({...formData, emergencyPhone: e.target.value})}
+                    required 
+                  />
                 </div>
                 <div>
                   <Label htmlFor="relationship">Relationship</Label>
-                  <Input id="relationship" placeholder="e.g., Father, Mother, Guardian" required />
+                  <Input 
+                    id="relationship" 
+                    placeholder="e.g., Father, Mother, Guardian"
+                    value={formData.relationship}
+                    onChange={(e) => setFormData({...formData, relationship: e.target.value})}
+                    required 
+                  />
                 </div>
               </div>
             </CardContent>
@@ -316,7 +517,8 @@ const Verification = () => {
                 size="lg"
                 disabled={isSubmitting}
               >
-                {isSubmitting ? "Submitting..." : "Submit for Verification"}
+                {isSubmitting ? "Submitting..." : 
+                 verificationRequest ? "Update Verification" : "Submit for Verification"}
               </Button>
               <p className="text-sm text-gray-600 text-center mt-3">
                 By submitting, you agree to our terms and conditions. 
