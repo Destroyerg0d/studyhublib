@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +38,55 @@ const Index = () => {
     "/lovable-uploads/607f8b56-97ae-4f18-ae19-6fd686fd3cdd.png"
   ];
 
+  // Static plans including the new shift options
+  const staticPlans = [
+    {
+      id: "morning-shift",
+      name: "Morning Shift",
+      price: 600,
+      duration_months: 1,
+      type: "morning",
+      features: ["6:00 AM - 2:00 PM Access", "High-Speed WiFi", "Comfortable Seating", "Security"],
+      popular: false
+    },
+    {
+      id: "evening-shift", 
+      name: "Evening Shift",
+      price: 600,
+      duration_months: 1,
+      type: "evening",
+      features: ["2:00 PM - 10:00 PM Access", "High-Speed WiFi", "Comfortable Seating", "Security"],
+      popular: false
+    },
+    {
+      id: "day-plan",
+      name: "Day Plan",
+      price: 1000,
+      duration_months: 1,
+      type: "day",
+      features: ["8:00 AM - 10:00 PM Access", "High-Speed WiFi", "Comfortable Seating", "Security"],
+      popular: true
+    },
+    {
+      id: "night-plan",
+      name: "Night Plan", 
+      price: 1400,
+      duration_months: 1,
+      type: "night",
+      features: ["10:00 PM - 6:00 AM Access", "High-Speed WiFi", "Comfortable Seating", "Security Deposit Required"],
+      popular: false
+    },
+    {
+      id: "24-7-plan",
+      name: "24/7 Plan",
+      price: 2000,
+      duration_months: 1,
+      type: "24/7",
+      features: ["24/7 Unlimited Access", "High-Speed WiFi", "Comfortable Seating", "Priority Support"],
+      popular: false
+    }
+  ];
+
   // Fetch real data from database
   useEffect(() => {
     const fetchData = async () => {
@@ -47,7 +97,12 @@ const Index = () => {
         .eq('active', true)
         .order('price');
       
-      if (plansData) setPlans(plansData);
+      // Use static plans if no database plans or combine them
+      if (plansData && plansData.length > 0) {
+        setPlans([...staticPlans, ...plansData]);
+      } else {
+        setPlans(staticPlans);
+      }
 
       // Fetch seats
       const { data: seatsData } = await supabase
@@ -279,10 +334,10 @@ const Index = () => {
             <Card className="text-center hover:shadow-lg transition-shadow">
               <CardHeader>
                 <Clock className="h-12 w-12 text-blue-600 mx-auto mb-4" />
-                <CardTitle>24/7 Access</CardTitle>
+                <CardTitle>Flexible Timing</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-600">Study at your own pace with round-the-clock access to our facilities.</p>
+                <p className="text-gray-600">Choose from morning, evening, day, night, or 24/7 access options.</p>
               </CardContent>
             </Card>
 
@@ -339,7 +394,7 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Pricing Section - Connected to Real Data */}
+      {/* Pricing Section - Updated with new shift options */}
       <section id="pricing" className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
@@ -347,32 +402,34 @@ const Index = () => {
             <p className="text-xl text-gray-600">Flexible options to suit your study schedule</p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-8">
             {plans.map((plan) => (
               <Card key={plan.id} className="relative hover:shadow-xl transition-shadow">
-                {plan.type === '24/7' && (
+                {plan.popular && (
                   <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                     <Badge className="bg-blue-600 text-white px-4 py-1">Most Popular</Badge>
                   </div>
                 )}
                 <CardHeader className="text-center">
-                  <CardTitle className="text-2xl">{plan.name}</CardTitle>
-                  <div className="text-4xl font-bold text-blue-600 my-4">
+                  <CardTitle className="text-xl">{plan.name}</CardTitle>
+                  <div className="text-3xl font-bold text-blue-600 my-4">
                     ₹{plan.price}
-                    <span className="text-lg font-normal text-gray-500">/{plan.duration_months}mo</span>
+                    <span className="text-sm font-normal text-gray-500">/mo</span>
                   </div>
                   <CardDescription>
-                    {plan.type === 'day' && '8 AM - 10 PM Access'}
-                    {plan.type === 'night' && '10 PM - 6 AM Access'}
+                    {plan.type === 'morning' && '6:00 AM - 2:00 PM'}
+                    {plan.type === 'evening' && '2:00 PM - 10:00 PM'}
+                    {plan.type === 'day' && '8:00 AM - 10:00 PM'}
+                    {plan.type === 'night' && '10:00 PM - 6:00 AM'}
                     {plan.type === '24/7' && '24/7 Unlimited Access'}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-3 mb-6">
                     {plan.features?.map((feature, index) => (
-                      <li key={index} className="flex items-center">
-                        <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                        <span className="text-gray-600">{feature}</span>
+                      <li key={index} className="flex items-start">
+                        <CheckCircle className="h-4 w-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                        <span className="text-gray-600 text-sm">{feature}</span>
                       </li>
                     ))}
                   </ul>
@@ -505,7 +562,7 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Contact Section */}
+      {/* Contact Section - Updated with new contact information */}
       <section id="contact" className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
@@ -521,21 +578,26 @@ const Index = () => {
                   <MapPin className="h-6 w-6 text-blue-600 mr-4 mt-1" />
                   <div>
                     <div className="font-semibold">Address</div>
-                    <div className="text-gray-600">123 Study Street, Education District<br />Bangalore, Karnataka 560001</div>
+                    <div className="text-gray-600">
+                      2/20, Ganga Vihar, Khoda Colony<br />
+                      Near Bhagwati Classes<br />
+                      Mangal Bazar<br />
+                      Noida - 201309
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center">
                   <Phone className="h-6 w-6 text-blue-600 mr-4" />
                   <div>
                     <div className="font-semibold">Phone</div>
-                    <div className="text-gray-600">+91 9876543210</div>
+                    <div className="text-gray-600">+91 8595300308</div>
                   </div>
                 </div>
                 <div className="flex items-center">
                   <Mail className="h-6 w-6 text-blue-600 mr-4" />
                   <div>
                     <div className="font-semibold">Email</div>
-                    <div className="text-gray-600">info@thestudyhub.com</div>
+                    <div className="text-gray-600">Thestudyhublib@gmail.com</div>
                   </div>
                 </div>
               </div>
@@ -601,18 +663,19 @@ const Index = () => {
             <div>
               <h4 className="font-semibold mb-4">Services</h4>
               <ul className="space-y-2 text-gray-400">
+                <li>Morning Shift Plans</li>
+                <li>Evening Shift Plans</li>
                 <li>Day Study Plans</li>
                 <li>Night Study Plans</li>
                 <li>24/7 Access</li>
-                <li>Group Study Rooms</li>
               </ul>
             </div>
             
             <div>
               <h4 className="font-semibold mb-4">Connect</h4>
               <ul className="space-y-2 text-gray-400">
-                <li>+91 9876543210</li>
-                <li>info@thestudyhub.com</li>
+                <li>+91 8595300308</li>
+                <li>Thestudyhublib@gmail.com</li>
                 <li>Follow us on social media</li>
               </ul>
             </div>
