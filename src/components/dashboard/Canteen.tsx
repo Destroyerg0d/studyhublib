@@ -7,8 +7,12 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Coffee, Plus, Minus, ShoppingCart, Clock } from "lucide-react";
 
+interface CartItem {
+  [itemId: string]: number;
+}
+
 const Canteen = () => {
-  const [cart, setCart] = useState({});
+  const [cart, setCart] = useState<CartItem>({});
   const [orderHistory, setOrderHistory] = useState([
     {
       id: "ORD001",
@@ -51,7 +55,7 @@ const Canteen = () => {
     ? menuItems 
     : menuItems.filter(item => item.category === selectedCategory);
 
-  const updateCart = (itemId, change) => {
+  const updateCart = (itemId: number, change: number) => {
     setCart(prev => {
       const newCart = { ...prev };
       const currentQty = newCart[itemId] || 0;
@@ -67,14 +71,14 @@ const Canteen = () => {
     });
   };
 
-  const getCartTotal = () => {
+  const getCartTotal = (): number => {
     return Object.entries(cart).reduce((total, [itemId, qty]) => {
       const item = menuItems.find(item => item.id === parseInt(itemId));
       return total + (item ? item.price * qty : 0);
     }, 0);
   };
 
-  const getCartItemCount = () => {
+  const getCartItemCount = (): number => {
     return Object.values(cart).reduce((total, qty) => total + qty, 0);
   };
 
@@ -90,7 +94,7 @@ const Canteen = () => {
 
     const orderItems = Object.entries(cart).map(([itemId, qty]) => {
       const item = menuItems.find(item => item.id === parseInt(itemId));
-      return `${item.name} (${qty})`;
+      return `${item?.name} (${qty})`;
     });
 
     const newOrder = {
@@ -111,7 +115,7 @@ const Canteen = () => {
     });
   };
 
-  const getStatusColor = (status) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
       case "Delivered": return "bg-green-100 text-green-800";
       case "Preparing": return "bg-yellow-100 text-yellow-800";
@@ -218,6 +222,7 @@ const Canteen = () => {
                 <div className="space-y-3">
                   {Object.entries(cart).map(([itemId, qty]) => {
                     const item = menuItems.find(item => item.id === parseInt(itemId));
+                    if (!item) return null;
                     return (
                       <div key={itemId} className="flex justify-between items-center">
                         <div>
