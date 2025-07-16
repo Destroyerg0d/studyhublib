@@ -2,7 +2,8 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, Calendar, Bell, Coffee, BookOpen, Sun, Moon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Clock, Calendar, Bell, Coffee, BookOpen, Sun, Moon, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface TimetableSlot {
@@ -26,63 +27,66 @@ interface Holiday {
 }
 
 const Timetable = () => {
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [slots, setSlots] = useState<TimetableSlot[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  const fetchTodaySchedule = async () => {
+  const fetchDaySchedule = async (date: Date) => {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      setLoading(true);
+      const dateString = date.toISOString().split('T')[0];
 
-      // Fetch today's timetable slots
+      // Fetch timetable slots for the selected date
       const { data: timetableData, error: timetableError } = await supabase
         .from('timetable_slots')
         .select('*')
         .eq('active', true)
-        .eq('date', today)
+        .eq('date', dateString)
         .order('time');
 
       if (timetableError) throw timetableError;
 
-      // Fetch today's holidays
+      // Fetch holidays for the selected date
       const { data: holidayData, error: holidayError } = await supabase
         .from('holidays')
         .select('*')
-        .eq('date', today);
+        .eq('date', dateString);
 
       if (holidayError) throw holidayError;
 
       setSlots(timetableData || []);
       setHolidays(holidayData || []);
     } catch (error) {
-      console.error('Error fetching today\'s schedule:', error);
+      console.error('Error fetching schedule for date:', error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchTodaySchedule();
+    fetchDaySchedule(currentDate);
 
-    // Update current time every minute for real-time updates
+    // Update current time every minute for real-time updates (only for today)
     const timeInterval = setInterval(() => {
       setCurrentTime(new Date());
     }, 60000);
 
-    // Set up real-time subscription for today's data
+    // Set up real-time subscription for the current date
+    const dateString = currentDate.toISOString().split('T')[0];
     const channel = supabase
-      .channel('today-schedule-updates')
+      .channel(`day-schedule-${dateString}`)
       .on('postgres_changes', 
         { 
           event: '*', 
           schema: 'public', 
           table: 'timetable_slots',
-          filter: `date=eq.${new Date().toISOString().split('T')[0]}`
+          filter: `date=eq.${dateString}`
         }, 
         () => {
-          console.log('Timetable slot updated for today');
-          fetchTodaySchedule();
+          console.log('Timetable slot updated for', dateString);
+          fetchDaySchedule(currentDate);
         }
       )
       .on('postgres_changes', 
@@ -90,35 +94,34 @@ const Timetable = () => {
           event: '*', 
           schema: 'public', 
           table: 'holidays',
-          filter: `date=eq.${new Date().toISOString().split('T')[0]}`
+          filter: `date=eq.${dateString}`
         }, 
         () => {
-          console.log('Holiday updated for today');
-          fetchTodaySchedule();
+          console.log('Holiday updated for', dateString);
+          fetchDaySchedule(currentDate);
         }
       )
       .subscribe();
 
-    // Refresh data at midnight
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(now.getDate() + 1);
-    tomorrow.setHours(0, 0, 0, 0);
-    const timeUntilMidnight = tomorrow.getTime() - now.getTime();
-
-    const midnightRefresh = setTimeout(() => {
-      fetchTodaySchedule();
-      // Set up daily refresh
-      const dailyRefresh = setInterval(fetchTodaySchedule, 24 * 60 * 60 * 1000);
-      return () => clearInterval(dailyRefresh);
-    }, timeUntilMidnight);
-
     return () => {
       clearInterval(timeInterval);
-      clearTimeout(midnightRefresh);
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [currentDate]);
+
+  const navigateDate = (direction: 'prev' | 'next') => {
+    const newDate = new Date(currentDate);
+    if (direction === 'prev') {
+      newDate.setDate(newDate.getDate() - 1);
+    } else {
+      newDate.setDate(newDate.getDate() + 1);
+    }
+    setCurrentDate(newDate);
+  };
+
+  const goToToday = () => {
+    setCurrentDate(new Date());
+  };
 
   const getTypeIcon = (type: string) => {
     switch (type.toLowerCase()) {
@@ -153,6 +156,12 @@ const Timetable = () => {
   };
 
   const isCurrentSlot = (time: string, endTime: string) => {
+    // Only show live indicator for today's slots
+    const today = new Date().toDateString();
+    const selectedDay = currentDate.toDateString();
+    
+    if (today !== selectedDay) return false;
+
     const [hours, minutes] = time.split(':').map(Number);
     const [endHours, endMinutes] = endTime.split(':').map(Number);
     
@@ -167,6 +176,12 @@ const Timetable = () => {
   };
 
   const getUpcomingSlot = () => {
+    // Only show upcoming slot for today
+    const today = new Date().toDateString();
+    const selectedDay = currentDate.toDateString();
+    
+    if (today !== selectedDay) return null;
+
     const now = currentTime;
     const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
     
@@ -179,29 +194,28 @@ const Timetable = () => {
 
   const currentSlot = slots.find(slot => isCurrentSlot(slot.time, slot.end_time));
   const upcomingSlot = getUpcomingSlot();
+  const isToday = currentDate.toDateString() === new Date().toDateString();
+  const isHoliday = holidays.length > 0;
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-lg">Loading today's schedule...</div>
+        <div className="text-lg">Loading schedule...</div>
       </div>
     );
   }
 
-  const today = new Date();
-  const isHoliday = holidays.length > 0;
-
   return (
     <div className="space-y-6">
-      {/* Current Time & Status */}
+      {/* Date Navigation */}
       <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <Clock className="h-8 w-8 text-blue-600" />
+              <Calendar className="h-8 w-8 text-blue-600" />
               <div>
                 <h3 className="text-xl font-semibold text-blue-900">
-                  {today.toLocaleDateString('en-US', { 
+                  {currentDate.toLocaleDateString('en-US', { 
                     weekday: 'long',
                     year: 'numeric',
                     month: 'long',
@@ -211,26 +225,62 @@ const Timetable = () => {
                 <p className="text-blue-700">Study Hub Library</p>
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-3xl font-bold text-blue-900">
-                {currentTime.toLocaleTimeString('en-US', { 
-                  hour: '2-digit', 
-                  minute: '2-digit',
-                  hour12: true 
-                })}
-              </div>
-              {currentSlot && (
-                <div className="text-sm text-blue-700 mt-1">
-                  Currently: {currentSlot.name}
-                </div>
+            
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => navigateDate('prev')}
+                className="h-10 w-10"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              
+              {!isToday && (
+                <Button
+                  variant="outline"
+                  onClick={goToToday}
+                  className="px-3 py-2 text-sm"
+                >
+                  Today
+                </Button>
               )}
-              {upcomingSlot && !currentSlot && (
-                <div className="text-sm text-blue-700 mt-1">
-                  Next: {upcomingSlot.name} at {formatTime(upcomingSlot.time)}
-                </div>
-              )}
+              
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => navigateDate('next')}
+                className="h-10 w-10"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
           </div>
+
+          {/* Real-time info for today only */}
+          {isToday && (
+            <div className="mt-4 flex items-center justify-between">
+              <div className="text-right">
+                <div className="text-3xl font-bold text-blue-900">
+                  {currentTime.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    hour12: true 
+                  })}
+                </div>
+                {currentSlot && (
+                  <div className="text-sm text-blue-700 mt-1">
+                    Currently: {currentSlot.name}
+                  </div>
+                )}
+                {upcomingSlot && !currentSlot && (
+                  <div className="text-sm text-blue-700 mt-1">
+                    Next: {upcomingSlot.name} at {formatTime(upcomingSlot.time)}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -243,7 +293,7 @@ const Timetable = () => {
                 <div>
                   <h4 className="font-medium text-red-900">{holiday.name}</h4>
                   <p className="text-sm text-red-700">
-                    {holiday.type === 'closed' ? 'Library is closed today' : 'Special schedule today'}
+                    {holiday.type === 'closed' ? 'Library is closed' : 'Special schedule'}
                   </p>
                 </div>
                 <div className="flex space-x-2">
@@ -260,21 +310,23 @@ const Timetable = () => {
         </Card>
       )}
 
-      {/* Today's Schedule */}
+      {/* Day's Schedule */}
       <Card>
         <CardHeader>
           <div className="flex items-center">
-            <Calendar className="h-5 w-5 mr-2" />
-            <CardTitle>Today's Schedule</CardTitle>
+            <Clock className="h-5 w-5 mr-2" />
+            <CardTitle>
+              {isToday ? "Today's Schedule" : "Schedule"}
+            </CardTitle>
           </div>
           <CardDescription>
-            Operating hours and activities for today
+            Operating hours and activities for {currentDate.toLocaleDateString()}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {slots.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-gray-500">No schedule available for today</p>
+              <p className="text-gray-500">No schedule available for this day</p>
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
