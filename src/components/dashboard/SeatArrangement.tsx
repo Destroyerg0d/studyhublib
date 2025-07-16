@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,20 +50,20 @@ const SeatArrangement = () => {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // First floor layout - Corner seats and 3 rows (19 seats total)
+  // First floor layout - arranged from top to bottom as shown in image 1
   const firstFloorLayout = [
-    { row: 'Corner', seats: [1, 2], label: 'Corner Seats' },
-    { row: 'A', seats: [3, 4, 5, 6, 7, 8], label: 'Row A' },
-    { row: 'B', seats: [13, 12, 11, 10, 9], label: 'Row B' },
-    { row: 'C', seats: [19, 18, 17, 16, 15, 14], label: 'Row C' }
+    { row: 'Corner', seats: [[2], [1]], label: 'Corner Seats' },
+    { row: 'A', seats: [[3], [4], [5], [6], [7], [8]], label: 'Row A' },
+    { row: 'B', seats: [[13, 12, 11, 10, 9]], label: 'Row B' },
+    { row: 'C', seats: [[19, 18, 17, 16, 15, 14]], label: 'Row C' }
   ];
 
-  // Second floor layout - 4 rows (21 seats total)
+  // Second floor layout - arranged from top to bottom as shown in image 2
   const secondFloorLayout = [
-    { row: 'D', seats: [20, 21, 22, 23, 24, 25], label: 'Row D' },
-    { row: 'E', seats: [30, 29, 28, 27, 26], label: 'Row E' },
-    { row: 'F', seats: [35, 34, 33, 32, 31], label: 'Row F' },
-    { row: 'G', seats: [40, 39, 38, 37, 36], label: 'Row G' }
+    { row: 'D', seats: [[20], [21], [22], [23], [24], [25]], label: 'Row D' },
+    { row: 'E', seats: [[30, 29, 28, 27, 26]], label: 'Row E' },
+    { row: 'F', seats: [[35, 34, 33, 32, 31]], label: 'Row F' },
+    { row: 'G', seats: [[40, 39, 38, 37, 36]], label: 'Row G' }
   ];
 
   const fetchData = async () => {
@@ -413,17 +412,21 @@ const SeatArrangement = () => {
             </div>
           </div>
 
-          {/* First Floor Grid */}
+          {/* First Floor Grid - Top to Bottom Layout */}
           <div className="space-y-6">
             {firstFloorLayout.map((row) => (
               <div key={row.row} className="space-y-2">
                 <h3 className="font-medium text-gray-700">{row.label}</h3>
-                <div className="flex flex-wrap gap-2 relative">
-                  {row.seats.map((seatNumber) => renderSeat(seatNumber))}
+                <div className="flex flex-col gap-2 relative">
+                  {row.seats.map((seatRow, rowIndex) => (
+                    <div key={rowIndex} className="flex gap-2 justify-center">
+                      {seatRow.map((seatNumber) => renderSeat(seatNumber))}
+                    </div>
+                  ))}
                   
-                  {/* Door in middle of floor - between seat 13 and other seats */}
+                  {/* Door positioned after Row B */}
                   {row.row === 'B' && (
-                    <div className="absolute -bottom-16 left-1/2 transform -translate-x-1/2">
+                    <div className="flex justify-center mt-4">
                       <div className="w-20 h-12 bg-gray-500 text-white flex items-center justify-center text-xs font-bold rounded border-2 border-gray-600">
                         DOOR
                       </div>
@@ -448,17 +451,21 @@ const SeatArrangement = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* Second Floor Grid */}
+          {/* Second Floor Grid - Top to Bottom Layout */}
           <div className="space-y-6">
             {secondFloorLayout.map((row, index) => (
               <div key={row.row} className="space-y-2">
                 <h3 className="font-medium text-gray-700">{row.label}</h3>
-                <div className="flex flex-wrap gap-2 relative">
-                  {row.seats.map((seatNumber) => renderSeat(seatNumber))}
+                <div className="flex flex-col gap-2 relative">
+                  {row.seats.map((seatRow, rowIndex) => (
+                    <div key={rowIndex} className="flex gap-2 justify-center">
+                      {seatRow.map((seatNumber) => renderSeat(seatNumber))}
+                    </div>
+                  ))}
                   
-                  {/* Stair and Door in front of 4th row (Row G) */}
-                  {index === 3 && (
-                    <div className="absolute -top-20 right-0">
+                  {/* Stair and Door positioned at the top for Row D */}
+                  {index === 0 && (
+                    <div className="flex justify-center mb-4">
                       <div className="flex flex-col items-center">
                         <div className="w-16 h-8 bg-gray-600 text-white flex items-center justify-center text-xs font-bold rounded mb-1">
                           STAIR
