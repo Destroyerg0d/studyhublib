@@ -1,115 +1,81 @@
 
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BookOpen, Clock, Users, Shield, Wifi, Coffee } from "lucide-react";
-import { Link } from "react-router-dom";
+import { BookOpen, Clock, Users, Calendar } from "lucide-react";
 
 const Index = () => {
+  const features = [
+    {
+      icon: BookOpen,
+      title: "Study Spaces",
+      description: "Premium study environments designed for focus and productivity"
+    },
+    {
+      icon: Clock,
+      title: "Flexible Hours",
+      description: "Open from early morning to late night to fit your schedule"
+    },
+    {
+      icon: Users,
+      title: "Community",
+      description: "Connect with like-minded students and professionals"
+    },
+    {
+      icon: Calendar,
+      title: "Easy Booking",
+      description: "Reserve your spot in advance with our simple booking system"
+    }
+  ];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Navigation */}
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <BookOpen className="h-8 w-8 text-blue-600" />
-              <span className="ml-2 text-xl font-bold text-gray-900">The Study Hub</span>
-            </div>
-            <div className="flex space-x-4">
-              <Link to="/dashboard">
-                <Button variant="outline">Dashboard</Button>
-              </Link>
-              <Link to="/admin">
-                <Button>Admin Panel</Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* Hero Section */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-gray-900 sm:text-5xl md:text-6xl">
-            Premium Study Environment
+    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10">
+      <div className="container mx-auto px-4 py-16">
+        <div className="text-center mb-16">
+          <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-6">
+            Welcome to StudyHub
           </h1>
-          <p className="mt-3 max-w-md mx-auto text-base text-gray-500 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
-            Experience the perfect blend of comfort, technology, and community in our state-of-the-art study facility.
+          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
+            Your premium destination for focused learning. Book your perfect study space and join a community of achievers.
           </p>
-          <div className="mt-5 max-w-md mx-auto sm:flex sm:justify-center md:mt-8">
-            <div className="rounded-md shadow">
-              <Link to="/dashboard">
-                <Button size="lg" className="w-full">
-                  Get Started
-                </Button>
-              </Link>
-            </div>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button asChild size="lg">
+              <Link to="/auth">Get Started</Link>
+            </Button>
+            <Button variant="outline" size="lg" asChild>
+              <Link to="/dashboard">Explore Features</Link>
+            </Button>
           </div>
         </div>
 
-        {/* Features Grid */}
-        <div className="mt-16">
-          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-            <Card>
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+          {features.map((feature, index) => (
+            <Card key={index} className="text-center hover:shadow-lg transition-shadow">
               <CardHeader>
-                <Clock className="h-8 w-8 text-blue-600" />
-                <CardTitle>Flexible Hours</CardTitle>
-                <CardDescription>
-                  24/7 access with day and night time options to fit your schedule
-                </CardDescription>
+                <feature.icon className="h-12 w-12 mx-auto text-primary mb-4" />
+                <CardTitle>{feature.title}</CardTitle>
               </CardHeader>
+              <CardContent>
+                <CardDescription>{feature.description}</CardDescription>
+              </CardContent>
             </Card>
+          ))}
+        </div>
 
-            <Card>
-              <CardHeader>
-                <Users className="h-8 w-8 text-blue-600" />
-                <CardTitle>Reserved Seating</CardTitle>
-                <CardDescription>
-                  Guaranteed comfortable seating with your personal study space
-                </CardDescription>
-              </CardHeader>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <Shield className="h-8 w-8 text-blue-600" />
-                <CardTitle>Secure Environment</CardTitle>
-                <CardDescription>
-                  Safe and monitored premises with fingerprint access control
-                </CardDescription>
-              </CardHeader>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <Wifi className="h-8 w-8 text-blue-600" />
-                <CardTitle>High-Speed WiFi</CardTitle>
-                <CardDescription>
-                  Reliable internet connectivity for all your digital study needs
-                </CardDescription>
-              </CardHeader>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <Coffee className="h-8 w-8 text-blue-600" />
-                <CardTitle>Canteen Services</CardTitle>
-                <CardDescription>
-                  Fresh snacks and beverages to keep you energized throughout your study sessions
-                </CardDescription>
-              </CardHeader>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <BookOpen className="h-8 w-8 text-blue-600" />
-                <CardTitle>Study Resources</CardTitle>
-                <CardDescription>
-                  Access to stationery, study materials, and a quiet learning environment
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          </div>
+        <div className="text-center">
+          <Card className="max-w-2xl mx-auto">
+            <CardHeader>
+              <CardTitle className="text-2xl">Ready to Start Studying?</CardTitle>
+              <CardDescription>
+                Join thousands of students who have made StudyHub their learning home
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild size="lg" className="w-full sm:w-auto">
+                <Link to="/auth">Sign Up Now</Link>
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
