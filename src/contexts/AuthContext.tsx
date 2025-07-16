@@ -49,7 +49,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (session?.user) {
         // Defer profile fetching to prevent deadlocks
         setTimeout(() => {
-          fetchProfile(session.user.id);
+          fetchOrCreateProfile(session.user.id, session.user.email!, session.user.user_metadata?.name);
         }, 0);
       } else {
         setProfile(null);
@@ -62,7 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfile(session.user.id);
+        fetchOrCreateProfile(session.user.id, session.user.email!, session.user.user_metadata?.name);
       } else {
         setLoading(false);
       }
@@ -71,7 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchProfile = async (userId: string) => {
+  const fetchOrCreateProfile = async (userId: string, email: string, name?: string) => {
     try {
       console.log('Fetching profile for user:', userId);
       const { data, error } = await supabase
@@ -81,16 +81,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (error) {
-        console.error('Error fetching profile:', error);
-        return;
-      }
+        if (error.code === 'PGRST116') {
+          // No profile found, create one
+          console.log('No profile found, creating one for user:', userId);
+          const { data: newProfile, error: createError } = await supabase
+            .from('profiles')
+            .insert({
+              id: userId,
+              email: email,
+              name: name || email.split('@')[0],
+              role: email === 'admin@studyhub.com' || email === 'hossenbiddoth@gmail.com' ? 'admin' : 'student',
+              verified: email === 'admin@studyhub.com' || email === 'hossenbiddoth@gmail.com'
+            })
+            .select()
+            .single();
 
-      if (data) {
+          if (createError) {
+            console.error('Error creating profile:', createError);
+          } else {
+            console.log('Profile created:', newProfile);
+            setProfile(newProfile);
+          }
+        } else {
+          console.error('Error fetching profile:', error);
+        }
+      } else if (data) {
         console.log('Profile fetched:', data);
         setProfile(data);
       }
     } catch (error) {
-      console.error('Error in fetchProfile:', error);
+      console.error('Error in fetchOrCreateProfile:', error);
     } finally {
       setLoading(false);
     }
@@ -98,7 +118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshProfile = async () => {
     if (user) {
-      await fetchProfile(user.id);
+      await fetchOrCreateProfile(user.id, user.email!, user.user_metadata?.name);
     }
   };
 

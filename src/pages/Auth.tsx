@@ -12,21 +12,21 @@ import { useEffect } from "react";
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const { login, register, user, profile } = useAuth();
+  const { login, register, user, profile, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   // Redirect if already logged in
   useEffect(() => {
-    if (user && profile) {
+    if (user && profile && !loading) {
       console.log('User already logged in, redirecting based on role:', profile.role);
       if (profile.role === 'admin') {
-        navigate('/admin');
+        navigate('/admin', { replace: true });
       } else {
-        navigate('/dashboard');
+        navigate('/dashboard', { replace: true });
       }
     }
-  }, [user, profile, navigate]);
+  }, [user, profile, loading, navigate]);
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -45,7 +45,7 @@ const Auth = () => {
           title: "Welcome back!",
           description: "You have been successfully logged in.",
         });
-        // Navigation will be handled by the useEffect above
+        // Don't navigate here - let the useEffect handle it after profile is loaded
       } else {
         console.error('Login failed:', result.error);
         toast({
