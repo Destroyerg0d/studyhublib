@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -37,38 +38,82 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session:', session?.user?.email);
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        fetchOrCreateProfile(session.user.id, session.user.email!, session.user.user_metadata?.name);
-      } else {
-        setLoading(false);
+  // Clean up any existing auth state
+  const cleanupAuthState = () => {
+    console.log('Cleaning up auth state');
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+        localStorage.removeItem(key);
       }
     });
+  };
 
-    // Set up auth state listener
+  useEffect(() => {
+    let mounted = true;
+
+    // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event, session?.user?.email);
+      
+      if (!mounted) return;
+
       setSession(session);
       setUser(session?.user ?? null);
       
-      if (session?.user) {
-        // Use a timeout to prevent potential deadlocks
+      if (event === 'SIGNED_IN' && session?.user) {
+        console.log('User signed in, fetching profile...');
+        // Use setTimeout to prevent potential deadlocks
         setTimeout(() => {
-          fetchOrCreateProfile(session.user.id, session.user.email!, session.user.user_metadata?.name);
+          if (mounted) {
+            fetchOrCreateProfile(session.user.id, session.user.email!, session.user.user_metadata?.name);
+          }
         }, 100);
-      } else {
+      } else if (event === 'SIGNED_OUT') {
+        console.log('User signed out');
+        setProfile(null);
+        setLoading(false);
+      } else if (!session) {
         setProfile(null);
         setLoading(false);
       }
     });
 
-    return () => subscription.unsubscribe();
+    // Get initial session
+    const initializeAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('Error getting session:', error);
+          setLoading(false);
+          return;
+        }
+
+        console.log('Initial session:', session?.user?.email);
+        
+        if (!mounted) return;
+
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          await fetchOrCreateProfile(session.user.id, session.user.email!, session.user.user_metadata?.name);
+        } else {
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    initializeAuth();
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const fetchOrCreateProfile = async (userId: string, email: string, name?: string) => {
@@ -83,10 +128,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (error && error.code === 'PGRST116') {
-        // Profile doesn't exist, create it using the service role
+        // Profile doesn't exist, create it
         console.log('Creating new profile for:', email);
         
-        // Use upsert instead of insert to handle race conditions
         const { data: newProfile, error: createError } = await supabase
           .from('profiles')
           .upsert({
@@ -104,7 +148,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (createError) {
           console.error('Error creating profile:', createError);
-          // If profile creation fails, try to fetch again in case it was created by another process
+          // Try to fetch again in case it was created by another process
           const { data: existingProfile } = await supabase
             .from('profiles')
             .select('*')
@@ -143,6 +187,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUp = async (email: string, password: string, name: string) => {
     try {
+      setLoading(true);
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -159,28 +204,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { error: null, success: true };
     } catch (error) {
       return { error: 'An unexpected error occurred', success: false };
+    } finally {
+      setLoading(false);
     }
   };
 
   const signIn = async (email: string, password: string) => {
     try {
+      setLoading(true);
+      console.log('Attempting sign in for:', email);
+
+      // Clean up any existing state first
+      cleanupAuthState();
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
+        console.error('Sign in error:', error);
         return { error: error.message, success: false };
       }
 
+      console.log('Sign in successful for:', email);
       return { error: null, success: true };
     } catch (error) {
+      console.error('Unexpected sign in error:', error);
       return { error: 'An unexpected error occurred', success: false };
+    } finally {
+      setLoading(false);
     }
   };
 
   const signOut = async () => {
     try {
+      cleanupAuthState();
       const { error } = await supabase.auth.signOut();
       if (!error) {
         setUser(null);

@@ -22,21 +22,23 @@ const Auth = () => {
     console.log('Auth page - User:', user?.email, 'Profile:', profile?.role, 'Loading:', loading);
     
     if (!loading && user && profile) {
-      console.log('Redirecting authenticated user with role:', profile.role);
+      console.log('User is authenticated, redirecting based on role:', profile.role);
+      
+      // Force redirect with replace to prevent back button issues
+      const redirectPath = profile.role === 'admin' ? '/admin' : '/dashboard';
+      console.log('Redirecting to:', redirectPath);
+      
+      // Use setTimeout to ensure state has fully updated
       setTimeout(() => {
-        if (profile.role === 'admin') {
-          console.log('Redirecting to admin panel');
-          navigate('/admin', { replace: true });
-        } else {
-          console.log('Redirecting to dashboard');
-          navigate('/dashboard', { replace: true });
-        }
+        navigate(redirectPath, { replace: true });
       }, 100);
     }
   }, [user, profile, loading, navigate]);
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isLoading) return;
+    
     setIsLoading(true);
     
     const formData = new FormData(e.currentTarget);
@@ -54,7 +56,9 @@ const Auth = () => {
           title: "Welcome back!",
           description: "You have been successfully logged in.",
         });
-        // Redirect will be handled by useEffect when profile loads
+        
+        // The redirect will be handled by the useEffect hook
+        console.log('Login successful, waiting for profile to load...');
       } else {
         console.error('Login failed:', result.error);
         toast({
@@ -77,6 +81,8 @@ const Auth = () => {
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isLoading) return;
+    
     setIsLoading(true);
     
     const formData = new FormData(e.currentTarget);
@@ -183,6 +189,7 @@ const Auth = () => {
                       placeholder="your@email.com"
                       defaultValue="admin@studyhub.com"
                       required
+                      disabled={isLoading}
                     />
                   </div>
                   <div className="space-y-2">
@@ -193,6 +200,7 @@ const Auth = () => {
                       type="password"
                       defaultValue="admin123"
                       required
+                      disabled={isLoading}
                     />
                   </div>
                   <Button 
@@ -220,6 +228,7 @@ const Auth = () => {
                       type="text"
                       placeholder="Your full name"
                       required
+                      disabled={isLoading}
                     />
                   </div>
                   <div className="space-y-2">
@@ -230,6 +239,7 @@ const Auth = () => {
                       type="email"
                       placeholder="your@email.com"
                       required
+                      disabled={isLoading}
                     />
                   </div>
                   <div className="space-y-2">
@@ -240,6 +250,7 @@ const Auth = () => {
                       type="password"
                       placeholder="At least 6 characters"
                       required
+                      disabled={isLoading}
                     />
                   </div>
                   <div className="space-y-2">
@@ -250,6 +261,7 @@ const Auth = () => {
                       type="password"
                       placeholder="Confirm your password"
                       required
+                      disabled={isLoading}
                     />
                   </div>
                   <Button 
