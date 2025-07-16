@@ -14,13 +14,389 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      holidays: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          name: string
+          recurring: boolean
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: string
+          name: string
+          recurring?: boolean
+          type?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          name?: string
+          recurring?: boolean
+          type?: string
+        }
+        Relationships: []
+      }
+      plans: {
+        Row: {
+          active: boolean
+          created_at: string
+          duration_months: number
+          features: string[] | null
+          id: string
+          name: string
+          price: number
+          type: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          duration_months: number
+          features?: string[] | null
+          id?: string
+          name: string
+          price: number
+          type: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          duration_months?: number
+          features?: string[] | null
+          id?: string
+          name?: string
+          price?: number
+          type?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          address: string | null
+          created_at: string
+          date_of_birth: string | null
+          email: string
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          emergency_contact_relation: string | null
+          id: string
+          name: string
+          phone: string | null
+          role: string
+          updated_at: string
+          verified: boolean
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          email: string
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_contact_relation?: string | null
+          id: string
+          name: string
+          phone?: string | null
+          role?: string
+          updated_at?: string
+          verified?: boolean
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          email?: string
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_contact_relation?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          role?: string
+          updated_at?: string
+          verified?: boolean
+        }
+        Relationships: []
+      }
+      registration_forms: {
+        Row: {
+          created_at: string
+          date_of_birth: string
+          email: string
+          first_name: string
+          form_submitted_at: string
+          gender: string
+          id: string
+          last_name: string
+          notes: string | null
+          phone: string
+          preferred_study_time: string
+          processed_at: string | null
+          processed_by: string | null
+          purpose: string
+          registration_agreed: boolean
+          registration_experience: string | null
+          special_requirements: string | null
+          status: string
+          terms_accepted: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date_of_birth: string
+          email: string
+          first_name: string
+          form_submitted_at?: string
+          gender: string
+          id?: string
+          last_name: string
+          notes?: string | null
+          phone: string
+          preferred_study_time: string
+          processed_at?: string | null
+          processed_by?: string | null
+          purpose: string
+          registration_agreed?: boolean
+          registration_experience?: string | null
+          special_requirements?: string | null
+          status?: string
+          terms_accepted?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date_of_birth?: string
+          email?: string
+          first_name?: string
+          form_submitted_at?: string
+          gender?: string
+          id?: string
+          last_name?: string
+          notes?: string | null
+          phone?: string
+          preferred_study_time?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          purpose?: string
+          registration_agreed?: boolean
+          registration_experience?: string | null
+          special_requirements?: string | null
+          status?: string
+          terms_accepted?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registration_forms_processed_by_fkey"
+            columns: ["processed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      seats: {
+        Row: {
+          assigned_user_id: string | null
+          created_at: string
+          id: string
+          row_letter: string
+          seat_number: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_user_id?: string | null
+          created_at?: string
+          id: string
+          row_letter: string
+          seat_number: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_user_id?: string | null
+          created_at?: string
+          id?: string
+          row_letter?: string
+          seat_number?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seats_assigned_user_id_fkey"
+            columns: ["assigned_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscriptions: {
+        Row: {
+          amount_paid: number | null
+          created_at: string
+          end_date: string
+          id: string
+          payment_date: string | null
+          plan_id: string
+          seat_id: string | null
+          start_date: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount_paid?: number | null
+          created_at?: string
+          end_date: string
+          id?: string
+          payment_date?: string | null
+          plan_id: string
+          seat_id?: string | null
+          start_date: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount_paid?: number | null
+          created_at?: string
+          end_date?: string
+          id?: string
+          payment_date?: string | null
+          plan_id?: string
+          seat_id?: string | null
+          start_date?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_seat_id_fkey"
+            columns: ["seat_id"]
+            isOneToOne: false
+            referencedRelation: "seats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      timetable_slots: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          time: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          time: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          time?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      verification_requests: {
+        Row: {
+          aadhar_back_url: string | null
+          aadhar_front_url: string | null
+          created_at: string
+          id: string
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          aadhar_back_url?: string | null
+          aadhar_front_url?: string | null
+          created_at?: string
+          id?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          aadhar_back_url?: string | null
+          aadhar_front_url?: string | null
+          created_at?: string
+          id?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verification_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verification_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_admin: {
+        Args: { user_id?: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
