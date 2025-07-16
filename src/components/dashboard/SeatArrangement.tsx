@@ -1,35 +1,104 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Users, CheckCircle, User, Building, Building2 } from "lucide-react";
+
+interface Seat {
+  id: string;
+  row_letter: string;
+  seat_number: number;
+  status: string;
+  assigned_user_id: string | null;
+}
+
+interface Plan {
+  id: string;
+  name: string;
+  price: number;
+  type: string;
+}
 
 const SeatArrangement = () => {
   const [selectedSeat, setSelectedSeat] = useState<string | null>(null);
-  const [bookedSeats, setBookedSeats] = useState<Set<string>>(new Set(['L-A-3', 'L-A-5', 'L-B-2', 'U-C-1', 'U-C-3', 'U-D-2']));
-  const [mySeat, setMySeat] = useState<string | null>('L-A-15'); // User's current seat
+  const [seats, setSeats] = useState<Seat[]>([]);
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [userSeat, setUserSeat] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { user } = useAuth();
 
-  // Define seat arrangement: 2 floors with left and right sections
-  const lowerFloor = [
-    { section: 'L-A', seats: 9, label: 'Lower Floor - Section A' },
-    { section: 'L-B', seats: 9, label: 'Lower Floor - Section B' },
-  ];
+  const fetchSeats = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('seats')
+        .select('*')
+        .order('row_letter')
+        .order('seat_number');
 
-  const upperFloor = [
-    { section: 'U-C', seats: 9, label: 'Upper Floor - Section C' },
-    { section: 'U-D', seats: 9, label: 'Upper Floor - Section D' },
-  ];
+      if (error) throw error;
+      setSeats(data || []);
+
+      // Find user's current seat
+      const currentUserSeat = data?.find(seat => seat.assigned_user_id === user?.id);
+      setUserSeat(currentUserSeat?.id || null);
+    } catch (error) {
+      console.error('Error fetching seats:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch seats",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchPlans = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('plans')
+        .select('*')
+        .eq('active', true)
+        .order('price');
+
+      if (error) throw error;
+      setPlans(data || []);
+    } catch (error) {
+      console.error('Error fetching plans:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSeats();
+    fetchPlans();
+
+    // Set up real-time subscription for seats
+    const channel = supabase
+      .channel('seat-updates')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'seats' }, 
+        () => fetchSeats()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
 
   const handleSeatClick = (seatId: string) => {
-    if (bookedSeats.has(seatId) || seatId === mySeat) return;
+    const seat = seats.find(s => s.id === seatId);
+    if (!seat || seat.status === 'occupied' || seat.id === userSeat) return;
     setSelectedSeat(selectedSeat === seatId ? null : seatId);
   };
 
-  const handleBookSeat = () => {
-    if (!selectedSeat) {
+  const handleBookSeat = async () => {
+    if (!selectedSeat || !user) {
       toast({
         title: "Please select a seat",
         description: "Choose an available seat to book.",
@@ -38,28 +107,50 @@ const SeatArrangement = () => {
       return;
     }
 
-    // Simulate booking
-    setBookedSeats(prev => new Set([...prev, selectedSeat]));
-    if (mySeat) {
-      setBookedSeats(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(mySeat);
-        return newSet;
+    try {
+      // Release current seat if user has one
+      if (userSeat) {
+        await supabase
+          .from('seats')
+          .update({ 
+            status: 'available', 
+            assigned_user_id: null 
+          })
+          .eq('id', userSeat);
+      }
+
+      // Book new seat
+      const { error } = await supabase
+        .from('seats')
+        .update({ 
+          status: 'occupied', 
+          assigned_user_id: user.id 
+        })
+        .eq('id', selectedSeat);
+
+      if (error) throw error;
+
+      toast({
+        title: "Seat booked successfully!",
+        description: `You have booked seat ${selectedSeat}. ${userSeat ? 'Your previous seat has been released.' : ''}`,
+      });
+
+      setSelectedSeat(null);
+      fetchSeats();
+    } catch (error) {
+      console.error('Error booking seat:', error);
+      toast({
+        title: "Error",
+        description: "Failed to book seat. Please try again.",
+        variant: "destructive",
       });
     }
-    setMySeat(selectedSeat);
-    setSelectedSeat(null);
-
-    toast({
-      title: "Seat booked successfully!",
-      description: `You have booked seat ${selectedSeat}. Your previous seat has been released.`,
-    });
   };
 
-  const getSeatStatus = (seatId: string) => {
-    if (seatId === mySeat) return 'my-seat';
-    if (bookedSeats.has(seatId)) return 'booked';
-    if (selectedSeat === seatId) return 'selected';
+  const getSeatStatus = (seat: Seat) => {
+    if (seat.id === userSeat) return 'my-seat';
+    if (seat.status === 'occupied') return 'booked';
+    if (selectedSeat === seat.id) return 'selected';
     return 'available';
   };
 
@@ -73,8 +164,21 @@ const SeatArrangement = () => {
     }
   };
 
-  const totalSeats = 36;
-  const availableSeats = totalSeats - bookedSeats.size;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg">Loading seats...</div>
+      </div>
+    );
+  }
+
+  const totalSeats = seats.length;
+  const occupiedSeats = seats.filter(seat => seat.status === 'occupied').length;
+  const availableSeats = totalSeats - occupiedSeats;
+
+  // Group seats by floor and section
+  const lowerFloorSeats = seats.filter(seat => seat.row_letter === 'A' || seat.row_letter === 'B');
+  const upperFloorSeats = seats.filter(seat => seat.row_letter === 'C' || seat.row_letter === 'D');
 
   return (
     <div className="space-y-6">
@@ -101,7 +205,7 @@ const SeatArrangement = () => {
         <Card>
           <CardContent className="flex items-center justify-center p-6">
             <div className="text-center">
-              <div className="text-2xl font-bold text-red-600">{bookedSeats.size}</div>
+              <div className="text-2xl font-bold text-red-600">{occupiedSeats}</div>
               <div className="text-sm text-gray-600">Occupied</div>
             </div>
           </CardContent>
@@ -110,7 +214,7 @@ const SeatArrangement = () => {
         <Card>
           <CardContent className="flex items-center justify-center p-6">
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{mySeat || 'None'}</div>
+              <div className="text-2xl font-bold text-blue-600">{userSeat || 'None'}</div>
               <div className="text-sm text-gray-600">My Seat</div>
             </div>
           </CardContent>
@@ -122,52 +226,27 @@ const SeatArrangement = () => {
         <CardHeader>
           <CardTitle className="flex items-center">
             <Users className="h-5 w-5 mr-2" />
-            Current Fees Structure
+            Available Plans
           </CardTitle>
           <CardDescription>
-            Available time slots and pricing
+            Current pricing and available time slots
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="p-4 bg-blue-50 rounded-lg border">
-              <h4 className="font-semibold text-blue-900">FULL DAY</h4>
-              <p className="text-sm text-blue-700">8AM TO 10PM</p>
-              <p className="text-xl font-bold text-blue-900">₹1,000</p>
-              <p className="text-xs text-blue-600">One person for whole day</p>
-            </div>
-            <div className="p-4 bg-green-50 rounded-lg border">
-              <h4 className="font-semibold text-green-900">HALF DAY MORNING</h4>
-              <p className="text-sm text-green-700">8AM TO 3PM</p>
-              <p className="text-xl font-bold text-green-900">₹600</p>
-            </div>
-            <div className="p-4 bg-orange-50 rounded-lg border">
-              <h4 className="font-semibold text-orange-900">HALF DAY EVENING</h4>
-              <p className="text-sm text-orange-700">3PM TO 10PM</p>
-              <p className="text-xl font-bold text-orange-900">₹600</p>
-            </div>
-            <div className="p-4 bg-purple-50 rounded-lg border">
-              <h4 className="font-semibold text-purple-900">24 HOURS</h4>
-              <p className="text-sm text-purple-700">8AM TO 8AM</p>
-              <p className="text-xl font-bold text-purple-900">₹2,000</p>
-            </div>
-            <div className="p-4 bg-indigo-50 rounded-lg border">
-              <h4 className="font-semibold text-indigo-900">NIGHT SHIFT</h4>
-              <p className="text-sm text-indigo-700">10PM TO 6AM</p>
-              <p className="text-xl font-bold text-indigo-900">₹1,200</p>
-            </div>
-            <div className="p-4 bg-yellow-50 rounded-lg border">
-              <h4 className="font-semibold text-yellow-900">FULL SHIFT</h4>
-              <p className="text-sm text-yellow-700">Morning + Evening</p>
-              <p className="text-xl font-bold text-yellow-900">₹1,200</p>
-              <p className="text-xs text-yellow-600">2 people share the seat</p>
-            </div>
+            {plans.map((plan) => (
+              <div key={plan.id} className="p-4 bg-blue-50 rounded-lg border">
+                <h4 className="font-semibold text-blue-900">{plan.name}</h4>
+                <p className="text-sm text-blue-700">{plan.type}</p>
+                <p className="text-xl font-bold text-blue-900">₹{plan.price}</p>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
 
       {/* Current Seat Info */}
-      {mySeat && (
+      {userSeat && (
         <Card className="bg-blue-50 border-blue-200">
           <CardHeader>
             <div className="flex items-center">
@@ -178,9 +257,9 @@ const SeatArrangement = () => {
           <CardContent>
             <div className="flex justify-between items-center">
               <div>
-                <p className="text-lg font-semibold text-blue-900">Seat {mySeat}</p>
+                <p className="text-lg font-semibold text-blue-900">Seat {userSeat}</p>
                 <p className="text-blue-700">
-                  {mySeat.startsWith('L-') ? 'Lower Floor' : 'Upper Floor'} - Section {mySeat.split('-')[1]}
+                  Your assigned seat
                 </p>
               </div>
               <Badge className="bg-blue-500 text-white">Your Seat</Badge>
@@ -197,7 +276,7 @@ const SeatArrangement = () => {
             Lower Floor Layout
           </CardTitle>
           <CardDescription>
-            Left and Right sections - Click on an available seat to select and book it
+            Sections A & B - Click on an available seat to select and book it
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -223,33 +302,33 @@ const SeatArrangement = () => {
 
           {/* Lower Floor Grid */}
           <div className="space-y-6">
-            {lowerFloor.map((section) => (
-              <div key={section.section} className="space-y-2">
-                <h3 className="font-medium text-gray-700">{section.label}</h3>
-                <div className="flex flex-wrap gap-2">
-                  {Array.from({ length: section.seats }, (_, i) => {
-                    const seatNumber = i + 1;
-                    const seatId = `${section.section}-${seatNumber}`;
-                    const status = getSeatStatus(seatId);
-                    
-                    return (
-                      <button
-                        key={seatId}
-                        onClick={() => handleSeatClick(seatId)}
-                        disabled={status === 'booked' || status === 'my-seat'}
-                        className={`
-                          w-12 h-12 rounded-lg border-2 text-xs font-medium
-                          flex items-center justify-center transition-colors
-                          ${getSeatColor(status)}
-                        `}
-                      >
-                        {seatNumber}
-                      </button>
-                    );
-                  })}
+            {['A', 'B'].map((section) => {
+              const sectionSeats = lowerFloorSeats.filter(seat => seat.row_letter === section);
+              return (
+                <div key={section} className="space-y-2">
+                  <h3 className="font-medium text-gray-700">Section {section}</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {sectionSeats.map((seat) => {
+                      const status = getSeatStatus(seat);
+                      return (
+                        <button
+                          key={seat.id}
+                          onClick={() => handleSeatClick(seat.id)}
+                          disabled={status === 'booked' || status === 'my-seat'}
+                          className={`
+                            w-12 h-12 rounded-lg border-2 text-xs font-medium
+                            flex items-center justify-center transition-colors
+                            ${getSeatColor(status)}
+                          `}
+                        >
+                          {seat.seat_number}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </CardContent>
       </Card>
@@ -262,39 +341,39 @@ const SeatArrangement = () => {
             Upper Floor Layout
           </CardTitle>
           <CardDescription>
-            Left and Right sections
+            Sections C & D
           </CardDescription>
         </CardHeader>
         <CardContent>
           {/* Upper Floor Grid */}
           <div className="space-y-6">
-            {upperFloor.map((section) => (
-              <div key={section.section} className="space-y-2">
-                <h3 className="font-medium text-gray-700">{section.label}</h3>
-                <div className="flex flex-wrap gap-2">
-                  {Array.from({ length: section.seats }, (_, i) => {
-                    const seatNumber = i + 1;
-                    const seatId = `${section.section}-${seatNumber}`;
-                    const status = getSeatStatus(seatId);
-                    
-                    return (
-                      <button
-                        key={seatId}
-                        onClick={() => handleSeatClick(seatId)}
-                        disabled={status === 'booked' || status === 'my-seat'}
-                        className={`
-                          w-12 h-12 rounded-lg border-2 text-xs font-medium
-                          flex items-center justify-center transition-colors
-                          ${getSeatColor(status)}
-                        `}
-                      >
-                        {seatNumber}
-                      </button>
-                    );
-                  })}
+            {['C', 'D'].map((section) => {
+              const sectionSeats = upperFloorSeats.filter(seat => seat.row_letter === section);
+              return (
+                <div key={section} className="space-y-2">
+                  <h3 className="font-medium text-gray-700">Section {section}</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {sectionSeats.map((seat) => {
+                      const status = getSeatStatus(seat);
+                      return (
+                        <button
+                          key={seat.id}
+                          onClick={() => handleSeatClick(seat.id)}
+                          disabled={status === 'booked' || status === 'my-seat'}
+                          className={`
+                            w-12 h-12 rounded-lg border-2 text-xs font-medium
+                            flex items-center justify-center transition-colors
+                            ${getSeatColor(status)}
+                          `}
+                        >
+                          {seat.seat_number}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Book Button */}
@@ -304,7 +383,7 @@ const SeatArrangement = () => {
                 <div>
                   <p className="font-medium">Selected Seat: {selectedSeat}</p>
                   <p className="text-sm text-gray-600">
-                    {selectedSeat.startsWith('L-') ? 'Lower Floor' : 'Upper Floor'} - Section {selectedSeat.split('-')[1]}
+                    Ready to book this seat
                   </p>
                 </div>
                 <div className="space-x-2">
@@ -319,35 +398,6 @@ const SeatArrangement = () => {
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Booking Rules */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Seat Booking Rules</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid md:grid-cols-2 gap-4 text-sm">
-            <div>
-              <h4 className="font-medium text-green-700 mb-2">✅ Booking Guidelines</h4>
-              <ul className="space-y-1 text-gray-600">
-                <li>• Seats can only be booked after fee payment</li>
-                <li>• Full Day: One person occupies the seat all day</li>
-                <li>• Full Shift: Two people share (morning + evening)</li>
-                <li>• Night seats are not occupied during day hours</li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-medium text-red-700 mb-2">❌ Restrictions</h4>
-              <ul className="space-y-1 text-gray-600">
-                <li>• Cannot book multiple seats simultaneously</li>
-                <li>• Late arrivals may lose seat for that day</li>
-                <li>• No reserving seats for others</li>
-                <li>• 24-hour bookings require special approval</li>
-              </ul>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>

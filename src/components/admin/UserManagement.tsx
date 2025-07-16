@@ -1,10 +1,9 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Table,
@@ -15,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Search,
   Filter,
@@ -22,116 +22,163 @@ import {
   UserX,
   Edit,
   Eye,
-  MoreHorizontal,
   Download,
   Users,
   CheckCircle,
   XCircle,
 } from "lucide-react";
 
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  verified: boolean;
+  role: string;
+  created_at: string;
+  subscription?: {
+    plan: { name: string; price: number };
+    seat_id: string | null;
+    status: string;
+    amount_paid: number | null;
+    end_date: string;
+  };
+}
+
 const UserManagement = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("all");
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const users = [
-    {
-      id: 1,
-      name: "Rahul Kumar",
-      email: "rahul@email.com",
-      phone: "+91 9876543210",
-      seat: "A-15",
-      plan: "Day Time - 3 Months",
-      status: "active",
-      verified: true,
-      joinDate: "2024-10-15",
-      lastPayment: "2024-12-01",
-      amount: 2800,
-    },
-    {
-      id: 2,
-      name: "Priya Sharma",
-      email: "priya@email.com",
-      phone: "+91 9876543211",
-      seat: "B-8",
-      plan: "Night Time - 1 Month",
-      status: "active",
-      verified: true,
-      joinDate: "2024-11-20",
-      lastPayment: "2024-12-15",
-      amount: 1400,
-    },
-    {
-      id: 3,
-      name: "Amit Singh",
-      email: "amit@email.com",
-      phone: "+91 9876543212",
-      seat: "C-12",
-      plan: "Day Time - 1 Month",
-      status: "pending",
-      verified: false,
-      joinDate: "2024-12-18",
-      lastPayment: "2024-12-18",
-      amount: 1000,
-    },
-    {
-      id: 4,
-      name: "Sneha Patel",
-      email: "sneha@email.com",
-      phone: "+91 9876543213",
-      seat: "D-5",
-      plan: "Day Time - 6 Months",
-      status: "active",
-      verified: true,
-      joinDate: "2024-09-10",
-      lastPayment: "2024-11-10",
-      amount: 5200,
-    },
-    {
-      id: 5,
-      name: "Vikash Gupta",
-      email: "vikash@email.com",
-      phone: "+91 9876543214",
-      seat: null,
-      plan: "Day Time - 1 Month",
-      status: "overdue",
-      verified: true,
-      joinDate: "2024-11-01",
-      lastPayment: "2024-11-01",
-      amount: 1000,
-    },
-  ];
+  const fetchUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select(`
+          *,
+          subscriptions (
+            status,
+            amount_paid,
+            end_date,
+            seat_id,
+            plans (
+              name,
+              price
+            )
+          )
+        `)
+        .order('created_at', { ascending: false });
 
-  const handleUserAction = (action: string, userId: number, userName: string) => {
-    toast({
-      title: `${action} successful`,
-      description: `${action} completed for ${userName}`,
-    });
+      if (error) throw error;
+      
+      setUsers(data || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch users",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
+  useEffect(() => {
+    fetchUsers();
+
+    // Set up real-time subscription
+    const channel = supabase
+      .channel('user-management')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'profiles' }, 
+        () => fetchUsers()
+      )
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'subscriptions' }, 
+        () => fetchUsers()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const handleUserAction = async (action: string, userId: string, userName: string) => {
+    try {
+      if (action === "Approve") {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ verified: true })
+          .eq('id', userId);
+        
+        if (error) throw error;
+      } else if (action === "Suspend") {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ verified: false })
+          .eq('id', userId);
+        
+        if (error) throw error;
+      }
+
+      toast({
+        title: `${action} successful`,
+        description: `${action} completed for ${userName}`,
+      });
+      
+      fetchUsers();
+    } catch (error) {
+      console.error(`Error ${action.toLowerCase()}ing user:`, error);
+      toast({
+        title: "Error",
+        description: `Failed to ${action.toLowerCase()} user`,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getStatusColor = (subscription: any) => {
+    if (!subscription) return "bg-gray-100 text-gray-800";
+    
+    switch (subscription.status) {
       case "active": return "bg-green-100 text-green-800";
       case "pending": return "bg-yellow-100 text-yellow-800";
-      case "overdue": return "bg-red-100 text-red-800";
-      case "suspended": return "bg-gray-100 text-gray-800";
+      case "expired": return "bg-red-100 text-red-800";
       default: return "bg-gray-100 text-gray-800";
     }
+  };
+
+  const getUserStatus = (user: User) => {
+    if (!user.subscription) return "no_subscription";
+    return user.subscription.status;
   };
 
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = selectedFilter === "all" || user.status === selectedFilter;
+    const userStatus = getUserStatus(user);
+    const matchesFilter = selectedFilter === "all" || userStatus === selectedFilter;
     return matchesSearch && matchesFilter;
   });
 
   const stats = [
     { title: "Total Users", value: users.length, color: "text-blue-600" },
-    { title: "Active Users", value: users.filter(u => u.status === "active").length, color: "text-green-600" },
-    { title: "Pending Users", value: users.filter(u => u.status === "pending").length, color: "text-yellow-600" },
-    { title: "Overdue Users", value: users.filter(u => u.status === "overdue").length, color: "text-red-600" },
+    { title: "Active Users", value: users.filter(u => getUserStatus(u) === "active").length, color: "text-green-600" },
+    { title: "Pending Users", value: users.filter(u => getUserStatus(u) === "pending").length, color: "text-yellow-600" },
+    { title: "No Subscription", value: users.filter(u => !u.subscription).length, color: "text-gray-600" },
   ];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg">Loading users...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -160,9 +207,9 @@ const UserManagement = () => {
               <CardDescription>Manage all registered students and their details</CardDescription>
             </div>
             <div className="flex space-x-2">
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
                 <Download className="h-4 w-4 mr-2" />
-                Export
+                Refresh
               </Button>
             </div>
           </div>
@@ -190,8 +237,8 @@ const UserManagement = () => {
                 <SelectItem value="all">All Users</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="overdue">Overdue</SelectItem>
-                <SelectItem value="suspended">Suspended</SelectItem>
+                <SelectItem value="expired">Expired</SelectItem>
+                <SelectItem value="no_subscription">No Subscription</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -206,7 +253,6 @@ const UserManagement = () => {
                   <TableHead>Seat</TableHead>
                   <TableHead>Plan</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Last Payment</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -230,31 +276,32 @@ const UserManagement = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm">{user.phone}</div>
+                      <div className="text-sm">{user.phone || "N/A"}</div>
                       <div className="text-xs text-gray-500">
-                        Joined: {new Date(user.joinDate).toLocaleDateString()}
+                        Joined: {new Date(user.created_at).toLocaleDateString()}
                       </div>
                     </TableCell>
                     <TableCell>
-                      {user.seat ? (
-                        <Badge variant="outline">{user.seat}</Badge>
+                      {user.subscription?.seat_id ? (
+                        <Badge variant="outline">{user.subscription.seat_id}</Badge>
                       ) : (
                         <span className="text-gray-400">No seat</span>
                       )}
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm">{user.plan}</div>
-                      <div className="text-xs text-gray-500">₹{user.amount}</div>
+                      {user.subscription ? (
+                        <div>
+                          <div className="text-sm">{user.subscription.plan?.name || "Unknown Plan"}</div>
+                          <div className="text-xs text-gray-500">₹{user.subscription.amount_paid || 0}</div>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">No subscription</span>
+                      )}
                     </TableCell>
                     <TableCell>
-                      <Badge className={getStatusColor(user.status)}>
-                        {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
+                      <Badge className={getStatusColor(user.subscription)}>
+                        {user.subscription?.status || "No Subscription"}
                       </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        {new Date(user.lastPayment).toLocaleDateString()}
-                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex space-x-1">
@@ -272,7 +319,7 @@ const UserManagement = () => {
                         >
                           <Edit className="h-3 w-3" />
                         </Button>
-                        {user.status === "pending" && (
+                        {!user.verified && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -281,7 +328,7 @@ const UserManagement = () => {
                             <UserCheck className="h-3 w-3 text-green-600" />
                           </Button>
                         )}
-                        {user.status === "active" && (
+                        {user.verified && (
                           <Button
                             size="sm"
                             variant="outline"

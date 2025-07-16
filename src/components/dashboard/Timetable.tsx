@@ -1,173 +1,294 @@
 
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, Sun, Moon, Calendar } from "lucide-react";
+import { Clock, Calendar, Bell, Coffee, BookOpen, Sun, Moon } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+
+interface TimetableSlot {
+  id: string;
+  name: string;
+  time: string;
+  type: string;
+  description: string | null;
+  active: boolean;
+}
+
+interface Holiday {
+  id: string;
+  name: string;
+  date: string;
+  type: string;
+  recurring: boolean;
+}
 
 const Timetable = () => {
-  const dayTimeSlots = [
-    { time: "8:00 AM", status: "open", activity: "Library Opens" },
-    { time: "9:00 AM", status: "peak", activity: "Peak Hours Begin" },
-    { time: "12:00 PM", status: "break", activity: "Lunch Break" },
-    { time: "1:00 PM", status: "open", activity: "Afternoon Session" },
-    { time: "6:00 PM", status: "peak", activity: "Evening Peak" },
-    { time: "10:00 PM", status: "closing", activity: "Day Time Closes" },
-  ];
+  const [slots, setSlots] = useState<TimetableSlot[]>([]);
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
-  const nightTimeSlots = [
-    { time: "10:00 PM", status: "open", activity: "Night Session Opens" },
-    { time: "12:00 AM", status: "quiet", activity: "Quiet Hours" },
-    { time: "3:00 AM", status: "deep", activity: "Deep Study Hours" },
-    { time: "6:00 AM", status: "closing", activity: "Night Session Ends" },
-  ];
+  const fetchTimetableData = async () => {
+    try {
+      // Fetch timetable slots
+      const { data: timetableData, error: timetableError } = await supabase
+        .from('timetable_slots')
+        .select('*')
+        .eq('active', true)
+        .order('time');
 
-  const holidays = [
-    { date: "Dec 25, 2024", name: "Christmas Day", type: "closed" },
-    { date: "Jan 1, 2025", name: "New Year's Day", type: "half-day" },
-    { date: "Jan 26, 2025", name: "Republic Day", type: "closed" },
-  ];
+      if (timetableError) throw timetableError;
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "open": return "bg-green-100 text-green-800";
-      case "peak": return "bg-blue-100 text-blue-800";
-      case "break": return "bg-yellow-100 text-yellow-800";
-      case "quiet": return "bg-purple-100 text-purple-800";
-      case "deep": return "bg-indigo-100 text-indigo-800";
-      case "closing": return "bg-red-100 text-red-800";
-      default: return "bg-gray-100 text-gray-800";
+      // Fetch holidays
+      const { data: holidayData, error: holidayError } = await supabase
+        .from('holidays')
+        .select('*')
+        .order('date');
+
+      if (holidayError) throw holidayError;
+
+      setSlots(timetableData || []);
+      setHolidays(holidayData || []);
+    } catch (error) {
+      console.error('Error fetching timetable data:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
+  useEffect(() => {
+    fetchTimetableData();
+
+    // Update current time every minute
+    const timeInterval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+
+    // Set up real-time subscription
+    const channel = supabase
+      .channel('timetable-updates')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'timetable_slots' }, 
+        () => fetchTimetableData()
+      )
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'holidays' }, 
+        () => fetchTimetableData()
+      )
+      .subscribe();
+
+    return () => {
+      clearInterval(timeInterval);
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const getTypeIcon = (type: string) => {
+    switch (type.toLowerCase()) {
+      case 'opening': return <Sun className="h-4 w-4" />;
+      case 'closing': return <Moon className="h-4 w-4" />;
+      case 'break': return <Coffee className="h-4 w-4" />;
+      case 'study': return <BookOpen className="h-4 w-4" />;
+      default: return <Clock className="h-4 w-4" />;
+    }
+  };
+
+  const getTypeColor = (type: string) => {
+    switch (type.toLowerCase()) {
+      case 'opening': return 'bg-green-100 text-green-800';
+      case 'closing': return 'bg-blue-100 text-blue-800';
+      case 'break': return 'bg-orange-100 text-orange-800';
+      case 'study': return 'bg-purple-100 text-purple-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const isCurrentSlot = (time: string) => {
+    const [hours, minutes] = time.split(':').map(Number);
+    const slotTime = new Date();
+    slotTime.setHours(hours, minutes, 0, 0);
+    
+    const now = currentTime;
+    const timeDiff = Math.abs(now.getTime() - slotTime.getTime());
+    return timeDiff <= 30 * 60 * 1000; // Within 30 minutes
+  };
+
+  const getUpcomingHolidays = () => {
+    const today = new Date();
+    return holidays.filter(holiday => {
+      const holidayDate = new Date(holiday.date);
+      return holidayDate >= today;
+    }).slice(0, 3);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg">Loading timetable...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Current Status */}
+      {/* Current Time */}
       <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-        <CardHeader>
-          <div className="flex items-center">
-            <Clock className="h-6 w-6 text-blue-600 mr-3" />
-            <div>
-              <CardTitle className="text-blue-900">Current Status</CardTitle>
-              <CardDescription className="text-blue-700">Library is currently open</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="p-6">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-2xl font-bold text-blue-900">Day Time Session</p>
-              <p className="text-blue-700">8:00 AM - 10:00 PM</p>
-            </div>
-            <Badge className="bg-green-500 text-white">Open Now</Badge>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Day Time Schedule */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center">
-              <Sun className="h-5 w-5 text-yellow-600 mr-2" />
-              <CardTitle>Day Time Schedule</CardTitle>
-            </div>
-            <CardDescription>8:00 AM - 10:00 PM</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {dayTimeSlots.map((slot, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="font-medium">{slot.time}</p>
-                    <p className="text-sm text-gray-600">{slot.activity}</p>
-                  </div>
-                  <Badge className={getStatusColor(slot.status)}>
-                    {slot.status.charAt(0).toUpperCase() + slot.status.slice(1)}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Night Time Schedule */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center">
-              <Moon className="h-5 w-5 text-blue-600 mr-2" />
-              <CardTitle>Night Time Schedule</CardTitle>
-            </div>
-            <CardDescription>10:00 PM - 6:00 AM</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {nightTimeSlots.map((slot, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="font-medium">{slot.time}</p>
-                    <p className="text-sm text-gray-600">{slot.activity}</p>
-                  </div>
-                  <Badge className={getStatusColor(slot.status)}>
-                    {slot.status.charAt(0).toUpperCase() + slot.status.slice(1)}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Holidays & Special Days */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center">
-            <Calendar className="h-5 w-5 text-red-600 mr-2" />
-            <CardTitle>Holidays & Special Days</CardTitle>
-          </div>
-          <CardDescription>Upcoming closures and modified timings</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {holidays.map((holiday, index) => (
-              <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                <div>
-                  <p className="font-medium">{holiday.date}</p>
-                  <p className="text-sm text-gray-600">{holiday.name}</p>
-                </div>
-                <Badge variant={holiday.type === 'closed' ? 'destructive' : 'secondary'}>
-                  {holiday.type === 'closed' ? 'Closed' : 'Half Day'}
-                </Badge>
+            <div className="flex items-center space-x-3">
+              <Clock className="h-8 w-8 text-blue-600" />
+              <div>
+                <h3 className="text-xl font-semibold text-blue-900">Current Time</h3>
+                <p className="text-blue-700">Study Hub Library</p>
               </div>
-            ))}
+            </div>
+            <div className="text-right">
+              <div className="text-3xl font-bold text-blue-900">
+                {currentTime.toLocaleTimeString('en-US', { 
+                  hour: '2-digit', 
+                  minute: '2-digit',
+                  hour12: true 
+                })}
+              </div>
+              <div className="text-blue-700">
+                {currentTime.toLocaleDateString('en-US', { 
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                })}
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Rules & Guidelines */}
+      {/* Daily Schedule */}
       <Card>
         <CardHeader>
-          <CardTitle>Library Rules & Guidelines</CardTitle>
-          <CardDescription>Please follow these guidelines for a better study environment</CardDescription>
+          <CardTitle className="flex items-center">
+            <Calendar className="h-5 w-5 mr-2" />
+            Daily Schedule
+          </CardTitle>
+          <CardDescription>Study Hub operating hours and schedule</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid md:grid-cols-2 gap-4">
+          {slots.length === 0 ? (
+            <div className="text-center py-8">
+              <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500">No schedule available</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {slots.map((slot) => (
+                <div
+                  key={slot.id}
+                  className={`p-4 rounded-lg border transition-all ${
+                    isCurrentSlot(slot.time) 
+                      ? 'bg-yellow-50 border-yellow-300 shadow-md' 
+                      : 'bg-white border-gray-200'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className={`p-2 rounded-full ${getTypeColor(slot.type)}`}>
+                        {getTypeIcon(slot.type)}
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-gray-900">{slot.name}</h4>
+                        {slot.description && (
+                          <p className="text-sm text-gray-600">{slot.description}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-semibold text-gray-900">
+                        {new Date(`2000-01-01T${slot.time}`).toLocaleTimeString('en-US', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          hour12: true
+                        })}
+                      </div>
+                      <Badge className={getTypeColor(slot.type)}>
+                        {slot.type}
+                      </Badge>
+                    </div>
+                  </div>
+                  {isCurrentSlot(slot.time) && (
+                    <div className="mt-2 flex items-center text-yellow-700">
+                      <Bell className="h-4 w-4 mr-1" />
+                      <span className="text-sm font-medium">Current/Upcoming</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Upcoming Holidays */}
+      {getUpcomingHolidays().length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Upcoming Holidays</CardTitle>
+            <CardDescription>Library closure dates and special occasions</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {getUpcomingHolidays().map((holiday) => (
+                <div key={holiday.id} className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium text-red-900">{holiday.name}</h4>
+                      <p className="text-sm text-red-700">
+                        {new Date(holiday.date).toLocaleDateString('en-US', {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
+                      </p>
+                    </div>
+                    <div className="flex space-x-2">
+                      <Badge variant={holiday.type === 'closed' ? 'destructive' : 'secondary'}>
+                        {holiday.type}
+                      </Badge>
+                      {holiday.recurring && (
+                        <Badge variant="outline">Recurring</Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Important Notes */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Important Information</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid md:grid-cols-2 gap-6">
             <div>
-              <h4 className="font-medium text-green-700 mb-2">✅ Allowed</h4>
-              <ul className="text-sm space-y-1 text-gray-600">
-                <li>• Quiet study and reading</li>
-                <li>• Use of personal laptops</li>
-                <li>• Taking notes</li>
-                <li>• Drinking water</li>
-                <li>• Using phone on silent</li>
+              <h4 className="font-medium text-blue-700 mb-2">📚 Study Guidelines</h4>
+              <ul className="space-y-1 text-sm text-gray-600">
+                <li>• Maintain silence in study areas</li>
+                <li>• Keep your study materials organized</li>
+                <li>• Use designated break areas for discussions</li>
+                <li>• Follow the library schedule strictly</li>
               </ul>
             </div>
             <div>
-              <h4 className="font-medium text-red-700 mb-2">❌ Not Allowed</h4>
-              <ul className="text-sm space-y-1 text-gray-600">
-                <li>• Loud conversations</li>
-                <li>• Playing music without headphones</li>
-                <li>• Eating messy foods</li>
-                <li>• Disturbing others</li>
-                <li>• Smoking or vaping</li>
+              <h4 className="font-medium text-green-700 mb-2">⏰ Timing Information</h4>
+              <ul className="space-y-1 text-sm text-gray-600">
+                <li>• Entry allowed until 15 minutes before closing</li>
+                <li>• Break times are mandatory for all students</li>
+                <li>• Late arrivals may lose seat for that session</li>
+                <li>• Check holiday calendar for closure dates</li>
               </ul>
             </div>
           </div>
