@@ -13,21 +13,32 @@ import { useEffect } from "react";
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const { login, register, user, profile } = useAuth();
+  const { login, register, user, profile, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   // Redirect if already logged in
   useEffect(() => {
-    if (user && profile) {
+    console.log('Auth page useEffect - user:', user?.email, 'profile:', profile, 'loading:', loading);
+    
+    if (!loading && user && profile) {
       console.log('User already logged in, redirecting based on role:', profile.role);
-      if (profile.role === 'admin') {
-        navigate('/admin');
-      } else {
-        navigate('/dashboard');
-      }
+      const targetRoute = profile.role === 'admin' ? '/admin' : '/dashboard';
+      console.log('Redirecting to:', targetRoute);
+      
+      // Use replace to prevent going back to auth page
+      navigate(targetRoute, { replace: true });
     }
-  }, [user, profile, navigate]);
+  }, [user, profile, loading, navigate]);
+
+  // Show loading while auth state is being determined
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -42,11 +53,12 @@ const Auth = () => {
     try {
       const result = await login(email, password);
       if (result.success) {
+        console.log('Login successful, auth state should update and redirect');
         toast({
           title: "Welcome back!",
           description: "You have been successfully logged in.",
         });
-        // Navigation will be handled by the useEffect above
+        // Don't manually navigate - let the useEffect handle it after auth state updates
       } else {
         console.error('Login failed:', result.error);
         toast({
@@ -54,6 +66,7 @@ const Auth = () => {
           description: result.error || "Invalid email or password. Please check your credentials and try again.",
           variant: "destructive",
         });
+        setIsLoading(false);
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -62,7 +75,6 @@ const Auth = () => {
         description: "Something went wrong. Please try again.",
         variant: "destructive",
       });
-    } finally {
       setIsLoading(false);
     }
   };
