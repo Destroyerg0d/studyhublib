@@ -305,9 +305,12 @@ export type Database = {
         Row: {
           active: boolean
           created_at: string
+          date: string
           description: string | null
+          end_time: string
           id: string
           name: string
+          plan_type: string
           time: string
           type: string
           updated_at: string
@@ -315,9 +318,12 @@ export type Database = {
         Insert: {
           active?: boolean
           created_at?: string
+          date?: string
           description?: string | null
+          end_time: string
           id?: string
           name: string
+          plan_type?: string
           time: string
           type: string
           updated_at?: string
@@ -325,9 +331,12 @@ export type Database = {
         Update: {
           active?: boolean
           created_at?: string
+          date?: string
           description?: string | null
+          end_time?: string
           id?: string
           name?: string
+          plan_type?: string
           time?: string
           type?: string
           updated_at?: string

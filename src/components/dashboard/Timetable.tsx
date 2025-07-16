@@ -10,11 +10,11 @@ interface TimetableSlot {
   id: string;
   name: string;
   time: string;
+  end_time: string;
   type: string;
   description: string | null;
   active: boolean;
   plan_type: string;
-  end_time: string;
   date: string;
 }
 
@@ -279,7 +279,7 @@ const Timetable = () => {
                           <div className="text-xs text-gray-600 mb-1">
                             {formatTimeRange(slot.time, slot.end_time)}
                           </div>
-                          <Badge size="sm" className={getPlanColor(slot.plan_type)}>
+                          <Badge className={getPlanColor(slot.plan_type)}>
                             {slot.plan_type.replace('_', ' ')}
                           </Badge>
                           {slot.description && (
