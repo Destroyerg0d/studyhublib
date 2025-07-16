@@ -122,6 +122,83 @@ export type Database = {
         }
         Relationships: []
       }
+      registration_forms: {
+        Row: {
+          created_at: string
+          date_of_birth: string
+          email: string
+          first_name: string
+          form_submitted_at: string
+          gender: string
+          id: string
+          last_name: string
+          notes: string | null
+          phone: string
+          preferred_study_time: string
+          processed_at: string | null
+          processed_by: string | null
+          purpose: string
+          registration_agreed: boolean
+          registration_experience: string | null
+          special_requirements: string | null
+          status: string
+          terms_accepted: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date_of_birth: string
+          email: string
+          first_name: string
+          form_submitted_at?: string
+          gender: string
+          id?: string
+          last_name: string
+          notes?: string | null
+          phone: string
+          preferred_study_time: string
+          processed_at?: string | null
+          processed_by?: string | null
+          purpose: string
+          registration_agreed?: boolean
+          registration_experience?: string | null
+          special_requirements?: string | null
+          status?: string
+          terms_accepted?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date_of_birth?: string
+          email?: string
+          first_name?: string
+          form_submitted_at?: string
+          gender?: string
+          id?: string
+          last_name?: string
+          notes?: string | null
+          phone?: string
+          preferred_study_time?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          purpose?: string
+          registration_agreed?: boolean
+          registration_experience?: string | null
+          special_requirements?: string | null
+          status?: string
+          terms_accepted?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registration_forms_processed_by_fkey"
+            columns: ["processed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       seats: {
         Row: {
           assigned_user_id: string | null

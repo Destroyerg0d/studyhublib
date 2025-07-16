@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,6 +14,7 @@ import {
   Menu,
   X,
   Home,
+  FileText,
 } from "lucide-react";
 
 const AdminLayout = ({ children }: { children: React.ReactNode }) => {
@@ -35,6 +35,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
     { path: "/admin/timetable", icon: Calendar, label: "Timetable" },
     { path: "/admin/fees", icon: CreditCard, label: "Fees Management" },
     { path: "/admin/verification", icon: CheckCircle, label: "Verification" },
+    { path: "/admin/registrations", icon: FileText, label: "Registrations" },
   ];
 
   const isActive = (path: string, exact = false) => {
