@@ -77,9 +77,12 @@ const Index = () => {
             <div>
               <h3 className="text-lg font-semibold mb-4">Contact Info</h3>
               <div className="space-y-2 text-gray-400">
-                <p>📞 +91 7303599125</p>
-                <p>✉️ info@thestudyhublib.com</p>
-                <p>🌐 thestudyhublib.com</p>
+                <p>📍 2/20, Ganga Vihar, Khoda Colony</p>
+                <p className="ml-4">Near Bhagwati Classes, Mangal Bazar</p>
+                <p className="ml-4">Noida - 201309</p>
+                <p>📞 +91 8595300308</p>
+                <p>✉️ thestudyhublib@gmail.com</p>
+                <p>🌐 thestudyhublib.site</p>
               </div>
             </div>
           </div>

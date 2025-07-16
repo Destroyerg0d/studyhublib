@@ -16,15 +16,15 @@ const CTASection = () => {
         <div className="flex flex-col sm:flex-row gap-8 justify-center items-center mb-12">
           <div className="flex items-center hover-scale">
             <MapPin className="h-6 w-6 mr-3 text-yellow-400" />
-            <span className="text-lg">thestudyhublib.com</span>
+            <span className="text-lg">2/20, Ganga Vihar, Khoda Colony</span>
           </div>
           <div className="flex items-center hover-scale">
             <Phone className="h-6 w-6 mr-3 text-yellow-400" />
-            <span className="text-lg">+91 7303599125</span>
+            <span className="text-lg">+91 8595300308</span>
           </div>
           <div className="flex items-center hover-scale">
             <Mail className="h-6 w-6 mr-3 text-yellow-400" />
-            <span className="text-lg">info@thestudyhublib.com</span>
+            <span className="text-lg">thestudyhublib@gmail.com</span>
           </div>
         </div>
         
