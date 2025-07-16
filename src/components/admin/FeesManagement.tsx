@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,7 +36,7 @@ const FeesManagement = () => {
       id: 1,
       studentName: "Rahul Kumar",
       email: "rahul@email.com",
-      plan: "Day Time - 3 Months",
+      plan: "Full Day - 3 Months",
       amount: 2800,
       paymentDate: "2024-12-01",
       dueDate: "2024-12-01",
@@ -49,8 +48,8 @@ const FeesManagement = () => {
       id: 2,
       studentName: "Priya Sharma",
       email: "priya@email.com",
-      plan: "Night Time - 1 Month",
-      amount: 1400,
+      plan: "Night Shift - 1 Month",
+      amount: 1200,
       paymentDate: "2024-12-15",
       dueDate: "2024-12-15",
       status: "paid",
@@ -61,8 +60,8 @@ const FeesManagement = () => {
       id: 3,
       studentName: "Amit Singh",
       email: "amit@email.com",
-      plan: "Day Time - 1 Month",
-      amount: 1000,
+      plan: "Half Day Morning - 1 Month",
+      amount: 600,
       paymentDate: null,
       dueDate: "2024-12-18",
       status: "pending",
@@ -73,7 +72,7 @@ const FeesManagement = () => {
       id: 4,
       studentName: "Sneha Patel",
       email: "sneha@email.com",
-      plan: "Day Time - 6 Months",
+      plan: "Full Day - 6 Months",
       amount: 5200,
       paymentDate: "2024-11-10",
       dueDate: "2024-11-10",
@@ -85,8 +84,8 @@ const FeesManagement = () => {
       id: 5,
       studentName: "Vikash Gupta",
       email: "vikash@email.com",
-      plan: "Day Time - 1 Month",
-      amount: 1000,
+      plan: "Half Day Evening - 1 Month",
+      amount: 600,
       paymentDate: null,
       dueDate: "2024-11-20",
       status: "overdue",
@@ -96,12 +95,131 @@ const FeesManagement = () => {
   ];
 
   const feePlans = [
-    { id: 1, name: "Day Time - 1 Month", price: 1000, type: "day", duration: 1 },
-    { id: 2, name: "Day Time - 3 Months", price: 2800, type: "day", duration: 3 },
-    { id: 3, name: "Day Time - 6 Months", price: 5200, type: "day", duration: 6 },
-    { id: 4, name: "Day Time - 12 Months", price: 10000, type: "day", duration: 12 },
-    { id: 5, name: "Night Time - 1 Month", price: 1400, type: "night", duration: 1 },
-    { id: 6, name: "Night Time - 3 Months", price: 3500, type: "night", duration: 3 },
+    // Full Day Plans
+    { 
+      id: 1, 
+      name: "Full Day - 1 Month", 
+      price: 1000, 
+      type: "full_day", 
+      duration: 1,
+      timeSlot: "8:00 AM - 10:00 PM",
+      features: ["14 hours daily access", "Individual study booth", "WiFi & power outlets", "Peaceful environment"]
+    },
+    { 
+      id: 2, 
+      name: "Full Day - 3 Months", 
+      price: 2800, 
+      type: "full_day", 
+      duration: 3,
+      timeSlot: "8:00 AM - 10:00 PM",
+      features: ["14 hours daily access", "Individual study booth", "WiFi & power outlets", "Peaceful environment"],
+      savings: 200
+    },
+    { 
+      id: 3, 
+      name: "Full Day - 6 Months", 
+      price: 5200, 
+      type: "full_day", 
+      duration: 6,
+      timeSlot: "8:00 AM - 10:00 PM",
+      features: ["14 hours daily access", "Individual study booth", "WiFi & power outlets", "Peaceful environment"],
+      savings: 800
+    },
+    { 
+      id: 4, 
+      name: "Full Day - 12 Months", 
+      price: 10000, 
+      type: "full_day", 
+      duration: 12,
+      timeSlot: "8:00 AM - 10:00 PM",
+      features: ["14 hours daily access", "Individual study booth", "WiFi & power outlets", "Peaceful environment"],
+      savings: 2000
+    },
+    
+    // Half Day Morning Plans
+    { 
+      id: 5, 
+      name: "Half Day Morning - 1 Month", 
+      price: 600, 
+      type: "half_day_morning", 
+      duration: 1,
+      timeSlot: "8:00 AM - 3:00 PM",
+      features: ["7 hours daily access", "Morning focused hours", "Individual study booth", "WiFi & power outlets"]
+    },
+    { 
+      id: 6, 
+      name: "Half Day Morning - 3 Months", 
+      price: 1700, 
+      type: "half_day_morning", 
+      duration: 3,
+      timeSlot: "8:00 AM - 3:00 PM",
+      features: ["7 hours daily access", "Morning focused hours", "Individual study booth", "WiFi & power outlets"],
+      savings: 100
+    },
+    { 
+      id: 7, 
+      name: "Half Day Morning - 6 Months", 
+      price: 3200, 
+      type: "half_day_morning", 
+      duration: 6,
+      timeSlot: "8:00 AM - 3:00 PM",
+      features: ["7 hours daily access", "Morning focused hours", "Individual study booth", "WiFi & power outlets"],
+      savings: 400
+    },
+    
+    // Half Day Evening Plans
+    { 
+      id: 8, 
+      name: "Half Day Evening - 1 Month", 
+      price: 600, 
+      type: "half_day_evening", 
+      duration: 1,
+      timeSlot: "3:00 PM - 10:00 PM",
+      features: ["7 hours daily access", "Evening focused hours", "Individual study booth", "WiFi & power outlets"]
+    },
+    { 
+      id: 9, 
+      name: "Half Day Evening - 3 Months", 
+      price: 1700, 
+      type: "half_day_evening", 
+      duration: 3,
+      timeSlot: "3:00 PM - 10:00 PM",
+      features: ["7 hours daily access", "Evening focused hours", "Individual study booth", "WiFi & power outlets"],
+      savings: 100
+    },
+    { 
+      id: 10, 
+      name: "Half Day Evening - 6 Months", 
+      price: 3200, 
+      type: "half_day_evening", 
+      duration: 6,
+      timeSlot: "3:00 PM - 10:00 PM",
+      features: ["7 hours daily access", "Evening focused hours", "Individual study booth", "WiFi & power outlets"],
+      savings: 400
+    },
+    
+    // Night Shift Plans
+    { 
+      id: 11, 
+      name: "Night Shift - 1 Month", 
+      price: 1200, 
+      type: "night_shift", 
+      duration: 1,
+      timeSlot: "10:00 PM - 6:00 AM",
+      features: ["8 hours night access", "Quiet study environment", "Individual study booth", "WiFi & power outlets"],
+      securityDeposit: 1000
+    },
+    { 
+      id: 12, 
+      name: "Night Shift - 3 Months", 
+      price: 3500, 
+      type: "night_shift", 
+      duration: 3,
+      timeSlot: "10:00 PM - 6:00 AM",
+      features: ["8 hours night access", "Quiet study environment", "Individual study booth", "WiFi & power outlets"],
+      savings: 100,
+      securityDeposit: 1000
+    },
   ];
 
   const handlePaymentAction = (action: string, paymentId: number) => {
@@ -117,6 +235,16 @@ const FeesManagement = () => {
       case "pending": return "bg-yellow-100 text-yellow-800";
       case "overdue": return "bg-red-100 text-red-800";
       case "refunded": return "bg-blue-100 text-blue-800";
+      default: return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getPlanTypeColor = (type: string) => {
+    switch (type) {
+      case "full_day": return "bg-blue-100 text-blue-800";
+      case "half_day_morning": return "bg-green-100 text-green-800";
+      case "half_day_evening": return "bg-orange-100 text-orange-800";
+      case "night_shift": return "bg-purple-100 text-purple-800";
       default: return "bg-gray-100 text-gray-800";
     }
   };
@@ -325,21 +453,54 @@ const FeesManagement = () => {
               <CardDescription>Configure pricing for different membership plans</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {feePlans.map((plan) => (
-                  <div key={plan.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div>
-                      <h3 className="font-medium">{plan.name}</h3>
-                      <p className="text-sm text-gray-600">
-                        {plan.type === "day" ? "Day Time (8AM-10PM)" : "Night Time (10PM-6AM)"}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        ₹{Math.round(plan.price / plan.duration)}/month average
-                      </p>
+              <div className="space-y-6">
+                {/* Group plans by type */}
+                {[
+                  { type: "full_day", title: "Full Day Plans", description: "8:00 AM - 10:00 PM" },
+                  { type: "half_day_morning", title: "Half Day Morning Plans", description: "8:00 AM - 3:00 PM" },
+                  { type: "half_day_evening", title: "Half Day Evening Plans", description: "3:00 PM - 10:00 PM" },
+                  { type: "night_shift", title: "Night Shift Plans", description: "10:00 PM - 6:00 AM" }
+                ].map(({ type, title, description }) => (
+                  <div key={type} className="space-y-3">
+                    <div className="flex items-center space-x-2">
+                      <h3 className="text-lg font-semibold">{title}</h3>
+                      <Badge className={getPlanTypeColor(type)}>{description}</Badge>
                     </div>
-                    <div className="text-right">
-                      <div className="text-lg font-bold">₹{plan.price.toLocaleString()}</div>
-                      <div className="text-sm text-gray-600">{plan.duration} month{plan.duration > 1 ? 's' : ''}</div>
+                    <div className="grid gap-3">
+                      {feePlans.filter(plan => plan.type === type).map((plan) => (
+                        <div key={plan.id} className="flex items-center justify-between p-4 border rounded-lg bg-gray-50">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3">
+                              <h4 className="font-medium">{plan.name}</h4>
+                              {plan.savings && (
+                                <Badge variant="outline" className="text-green-600 border-green-200">
+                                  Save ₹{plan.savings}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-600 mt-1">{plan.timeSlot}</p>
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {plan.features.slice(0, 2).map((feature, index) => (
+                                <span key={index} className="text-xs text-gray-500 bg-white px-2 py-1 rounded">
+                                  {feature}
+                                </span>
+                              ))}
+                            </div>
+                            {plan.securityDeposit && (
+                              <p className="text-xs text-orange-600 mt-1">
+                                + ₹{plan.securityDeposit} security deposit (one-time)
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-right ml-4">
+                            <div className="text-lg font-bold">₹{plan.price.toLocaleString()}</div>
+                            <div className="text-sm text-gray-600">{plan.duration} month{plan.duration > 1 ? 's' : ''}</div>
+                            <div className="text-xs text-gray-500">
+                              ₹{Math.round(plan.price / plan.duration)}/month avg
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))}
