@@ -1,53 +1,127 @@
-
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useAuth } from '@/contexts/AuthContext';
-import { toast } from '@/components/ui/use-toast';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BookOpen, ArrowLeft } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { useEffect } from "react";
 
 const Auth = () => {
-  const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn, signUp, user } = useAuth();
+  const { login, register, user, profile } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
+  // Redirect if already logged in
   useEffect(() => {
-    if (user) {
-      navigate('/dashboard');
+    if (user && profile) {
+      console.log('User already logged in, redirecting based on role:', profile.role);
+      if (profile.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
     }
-  }, [user, navigate]);
+  }, [user, profile, navigate]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
+    
+    const formData = new FormData(e.currentTarget);
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+
+    console.log('Login form submitted with email:', email);
 
     try {
-      const { error } = isLogin 
-        ? await signIn(email, password)
-        : await signUp(email, password);
-
-      if (error) {
+      const result = await login(email, password);
+      if (result.success) {
         toast({
-          title: "Error",
-          description: error.message,
+          title: "Welcome back!",
+          description: "You have been successfully logged in.",
+        });
+        // Navigation will be handled by the useEffect above
+      } else {
+        console.error('Login failed:', result.error);
+        toast({
+          title: "Login failed",
+          description: result.error || "Invalid email or password. Please check your credentials and try again.",
           variant: "destructive",
         });
-      } else {
-        if (!isLogin) {
-          toast({
-            title: "Success",
-            description: "Please check your email to verify your account",
-          });
-        }
       }
     } catch (error) {
+      console.error('Login error:', error);
       toast({
         title: "Error",
-        description: "An unexpected error occurred",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsLoading(true);
+    
+    const formData = new FormData(e.currentTarget);
+    const name = formData.get('name') as string;
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+    const confirmPassword = formData.get('confirmPassword') as string;
+
+    // Basic validation
+    if (password !== confirmPassword) {
+      toast({
+        title: "Password mismatch",
+        description: "Please make sure both passwords match.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    console.log('Registration form submitted with email:', email);
+
+    try {
+      const result = await register(email, password, name);
+      if (result.success) {
+        toast({
+          title: "Registration successful!",
+          description: "Please check your email to verify your account before logging in.",
+        });
+        // Switch to login tab after successful registration
+        const loginTab = document.querySelector('[value="login"]') as HTMLElement;
+        loginTab?.click();
+      } else {
+        console.error('Registration failed:', result.error);
+        toast({
+          title: "Registration failed",
+          description: result.error || "Please check your information and try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      toast({
+        title: "Error",
+        description: "Something went wrong. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -56,55 +130,123 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>{isLogin ? 'Sign In' : 'Sign Up'}</CardTitle>
-          <CardDescription>
-            {isLogin 
-              ? 'Enter your credentials to access your account'
-              : 'Create a new account to get started'
-            }
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <div className="flex items-center justify-center mb-8">
+          <Link to="/" className="flex items-center text-blue-600 hover:text-blue-700">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Home
+          </Link>
+        </div>
+
+        <Card>
+          <CardHeader className="text-center">
+            <div className="flex items-center justify-center mb-4">
+              <BookOpen className="h-8 w-8 text-blue-600" />
             </div>
-            <div>
-              <Input
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Loading...' : (isLogin ? 'Sign In' : 'Sign Up')}
-            </Button>
-          </form>
-          <div className="mt-4 text-center">
-            <Button
-              variant="link"
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-sm"
-            >
-              {isLogin 
-                ? "Don't have an account? Sign up"
-                : "Already have an account? Sign in"
-              }
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+            <CardTitle className="text-2xl">The Study Hub</CardTitle>
+            <CardDescription>Access your premium study environment</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="login" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="login">Login</TabsTrigger>
+                <TabsTrigger value="register">Register</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="login">
+                <form onSubmit={handleLogin} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="login-email">Email</Label>
+                    <Input
+                      id="login-email"
+                      name="email"
+                      type="email"
+                      placeholder="your@email.com"
+                      defaultValue="admin@studyhub.com"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="login-password">Password</Label>
+                    <Input
+                      id="login-password"
+                      name="password"
+                      type="password"
+                      defaultValue="admin123"
+                      required
+                    />
+                  </div>
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Signing in..." : "Sign In"}
+                  </Button>
+                  <div className="text-sm text-gray-600 text-center space-y-1">
+                    <div>Demo Accounts:</div>
+                    <div>admin@studyhub.com / admin123 (Admin)</div>
+                    <div>hossenbiddoth@gmail.com (Admin)</div>
+                  </div>
+                </form>
+              </TabsContent>
+              
+              <TabsContent value="register">
+                <form onSubmit={handleRegister} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="register-name">Full Name</Label>
+                    <Input
+                      id="register-name"
+                      name="name"
+                      type="text"
+                      placeholder="Your full name"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="register-email">Email</Label>
+                    <Input
+                      id="register-email"
+                      name="email"
+                      type="email"
+                      placeholder="your@email.com"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="register-password">Password</Label>
+                    <Input
+                      id="register-password"
+                      name="password"
+                      type="password"
+                      placeholder="At least 6 characters"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="register-confirm-password">Confirm Password</Label>
+                    <Input
+                      id="register-confirm-password"
+                      name="confirmPassword"
+                      type="password"
+                      placeholder="Confirm your password"
+                      required
+                    />
+                  </div>
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Creating account..." : "Create Account"}
+                  </Button>
+                </form>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
