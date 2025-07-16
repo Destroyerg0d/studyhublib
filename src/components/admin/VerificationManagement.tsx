@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +34,8 @@ import {
 
 const VerificationManagement = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [highlightPending, setHighlightPending] = useState(false);
+  const tableRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   const verificationRequests = [
@@ -124,6 +125,34 @@ const VerificationManagement = () => {
     });
   };
 
+  const handleReviewNow = () => {
+    // Scroll to the table
+    if (tableRef.current) {
+      tableRef.current.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'start' 
+      });
+    }
+    
+    // Highlight pending requests
+    setHighlightPending(true);
+    
+    // Filter to show only pending requests
+    setSearchTerm("pending");
+    
+    // Show toast notification
+    toast({
+      title: "Reviewing Pending Requests",
+      description: `Found ${pendingCount} pending verification request${pendingCount > 1 ? 's' : ''} to review.`,
+    });
+    
+    // Remove highlight after 3 seconds
+    setTimeout(() => {
+      setHighlightPending(false);
+      setSearchTerm(""); // Clear filter to show all requests again
+    }, 3000);
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "approved": return "bg-green-100 text-green-800";
@@ -133,10 +162,12 @@ const VerificationManagement = () => {
     }
   };
 
-  const filteredRequests = verificationRequests.filter(request =>
-    request.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    request.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredRequests = verificationRequests.filter(request => {
+    const matchesSearch = request.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         request.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         request.status.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesSearch;
+  });
 
   const pendingCount = verificationRequests.filter(r => r.status === "pending").length;
   const approvedCount = verificationRequests.filter(r => r.status === "approved").length;
@@ -195,14 +226,19 @@ const VerificationManagement = () => {
                 <strong>Urgent:</strong> {pendingCount} verification request{pendingCount > 1 ? 's' : ''} pending review.
               </p>
             </div>
-            <Button size="sm" variant="outline" className="border-yellow-600 text-yellow-600">
+            <Button 
+              size="sm" 
+              variant="outline" 
+              className="border-yellow-600 text-yellow-600 hover:bg-yellow-100"
+              onClick={handleReviewNow}
+            >
               Review Now
             </Button>
           </CardContent>
         </Card>
       )}
 
-      <Card>
+      <Card ref={tableRef}>
         <CardHeader>
           <div className="flex flex-col md:flex-row md:items-center justify-between space-y-4 md:space-y-0">
             <div>
@@ -215,7 +251,7 @@ const VerificationManagement = () => {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <Input
-                placeholder="Search by name or email..."
+                placeholder="Search by name, email, or status..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 w-full md:w-64"
@@ -237,7 +273,14 @@ const VerificationManagement = () => {
               </TableHeader>
               <TableBody>
                 {filteredRequests.map((request) => (
-                  <TableRow key={request.id}>
+                  <TableRow 
+                    key={request.id}
+                    className={
+                      highlightPending && request.status === "pending" 
+                        ? "bg-yellow-50 border-l-4 border-l-yellow-400 animate-pulse" 
+                        : ""
+                    }
+                  >
                     <TableCell>
                       <div>
                         <div className="font-medium">{request.studentName}</div>
