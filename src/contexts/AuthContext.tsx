@@ -49,7 +49,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (session?.user) {
         // Defer profile fetching to prevent deadlocks
         setTimeout(() => {
-          fetchProfile(session.user.id);
+          fetchOrCreateProfile(session.user);
         }, 0);
       } else {
         setProfile(null);
@@ -62,7 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfile(session.user.id);
+        fetchOrCreateProfile(session.user);
       } else {
         setLoading(false);
       }
@@ -71,17 +71,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchProfile = async (userId: string) => {
+  const fetchOrCreateProfile = async (user: User) => {
     try {
-      console.log('Fetching profile for user:', userId);
+      console.log('Fetching profile for user:', user.id);
+      
+      // First, try to fetch existing profile
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', userId)
+        .eq('id', user.id)
         .single();
+
+      if (error && error.code === 'PGRST116') {
+        // No profile found, create one
+        console.log('No profile found, creating one for:', user.email);
+        await createMissingProfile(user);
+        return;
+      }
 
       if (error) {
         console.error('Error fetching profile:', error);
+        setLoading(false);
         return;
       }
 
@@ -90,7 +100,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setProfile(data);
       }
     } catch (error) {
-      console.error('Error in fetchProfile:', error);
+      console.error('Error in fetchOrCreateProfile:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createMissingProfile = async (user: User) => {
+    try {
+      console.log('Creating missing profile for user:', user.email);
+      
+      const profileData = {
+        id: user.id,
+        email: user.email!,
+        name: user.user_metadata?.name || user.email!.split('@')[0],
+        role: ['admin@studyhub.com', 'hossenbiddoth@gmail.com'].includes(user.email!) ? 'admin' : 'student',
+        verified: ['admin@studyhub.com', 'hossenbiddoth@gmail.com'].includes(user.email!) ? true : false
+      };
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .insert(profileData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating profile:', error);
+        setLoading(false);
+        return;
+      }
+
+      if (data) {
+        console.log('Profile created successfully:', data);
+        setProfile(data);
+      }
+    } catch (error) {
+      console.error('Error in createMissingProfile:', error);
     } finally {
       setLoading(false);
     }
@@ -98,7 +143,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshProfile = async () => {
     if (user) {
-      await fetchProfile(user.id);
+      await fetchOrCreateProfile(user);
     }
   };
 
