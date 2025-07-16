@@ -68,9 +68,9 @@ const Index = () => {
         </div>
       </header>
 
-      {/* Hero Section with Video Background */}
-      <section className="relative py-20 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-900/90 to-indigo-900/90"></div>
+      {/* Hero Section with Video Background - Made Taller */}
+      <section className="relative py-32 md:py-40 lg:py-48 overflow-hidden min-h-[70vh]">
+        <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-black/70"></div>
         <div className="absolute inset-0">
           <video 
             autoPlay 
@@ -82,25 +82,27 @@ const Index = () => {
             <source src="https://drive.google.com/uc?export=download&id=1-MdNvuca-knHGp-H9UQ7_GGK9tNMcjHF" type="video/mp4" />
           </video>
         </div>
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-white">
-          <h2 className="text-4xl md:text-6xl font-bold mb-6 animate-fade-in">
-            Your Perfect Study
-            <span className="text-yellow-400"> Environment</span>
-          </h2>
-          <p className="text-xl mb-8 max-w-3xl mx-auto opacity-90 animate-fade-in">
-            Experience premium library facilities with 24/7 access, comfortable wooden seating, 
-            and a peaceful environment designed for serious students.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in">
-            <Link to="/auth">
-              <Button size="lg" className="bg-yellow-500 hover:bg-yellow-600 text-black font-semibold">
-                Book Your Seat Today
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-white h-full flex flex-col justify-center">
+          <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-8 md:p-12 border border-white/10">
+            <h2 className="text-4xl md:text-6xl font-bold mb-6 animate-fade-in text-white drop-shadow-2xl">
+              Your Perfect Study
+              <span className="text-yellow-400 drop-shadow-2xl"> Environment</span>
+            </h2>
+            <p className="text-xl md:text-2xl mb-8 max-w-3xl mx-auto text-white/95 animate-fade-in drop-shadow-lg font-medium">
+              Experience premium library facilities with 24/7 access, comfortable wooden seating, 
+              and a peaceful environment designed for serious students.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in">
+              <Link to="/auth">
+                <Button size="lg" className="bg-yellow-500 hover:bg-yellow-600 text-black font-semibold text-lg px-8 py-4 shadow-xl">
+                  Book Your Seat Today
+                </Button>
+              </Link>
+              <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white hover:text-black font-semibold text-lg px-8 py-4 shadow-xl">
+                <Play className="mr-2 h-5 w-5" />
+                Watch Tour
               </Button>
-            </Link>
-            <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-black">
-              <Play className="mr-2 h-5 w-5" />
-              Watch Tour
-            </Button>
+            </div>
           </div>
         </div>
       </section>
