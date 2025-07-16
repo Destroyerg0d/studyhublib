@@ -50,18 +50,20 @@ const SeatManagement = () => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  // First floor layout - 3 rows (A, B, C) with specific seat arrangements
+  // First floor layout - Corner seats and 3 rows (19 seats total)
   const firstFloorLayout = [
-    { row: 'A', seats: [1, 2, 3, 4, 5, 6, 7, 8], label: 'Row A' },
-    { row: 'B', seats: [9, 10, 11, 12, 13], label: 'Row B' },
-    { row: 'C', seats: [14], label: 'Row C' }
+    { row: 'Corner', seats: [1, 2], label: 'Corner Seats' },
+    { row: 'A', seats: [3, 4, 5, 6, 7, 8], label: 'Row A' },
+    { row: 'B', seats: [13, 12, 11, 10, 9], label: 'Row B' },
+    { row: 'C', seats: [19, 18, 17, 16, 15, 14], label: 'Row C' }
   ];
 
-  // Second floor layout - 4 rows (D, E, F, G) with specific arrangements
+  // Second floor layout - 4 rows (21 seats total)
   const secondFloorLayout = [
     { row: 'D', seats: [20, 21, 22, 23, 24, 25], label: 'Row D' },
-    { row: 'E', seats: [26, 27, 28, 29, 30, 31, 32, 33, 34, 35], label: 'Row E' },
-    { row: 'F', seats: [36, 37, 38, 39, 40], label: 'Row F' }
+    { row: 'E', seats: [30, 29, 28, 27, 26], label: 'Row E' },
+    { row: 'F', seats: [35, 34, 33, 32, 31], label: 'Row F' },
+    { row: 'G', seats: [40, 39, 38, 37, 36], label: 'Row G' }
   ];
 
   const fetchData = async () => {
@@ -72,7 +74,6 @@ const SeatManagement = () => {
       const { data: seatsData, error: seatsError } = await supabase
         .from('seats')
         .select('*')
-        .order('row_letter')
         .order('seat_number');
 
       if (seatsError) throw seatsError;
@@ -165,8 +166,8 @@ const SeatManagement = () => {
     }
   };
 
-  const getSeatInfo = (seatId: string) => {
-    const seat = seats.find(s => s.id === seatId);
+  const getSeatInfo = (seatNumber: number) => {
+    const seat = seats.find(s => s.seat_number === seatNumber);
     if (!seat || !seat.assigned_user_id) return null;
 
     const profile = profiles.find(p => p.id === seat.assigned_user_id);
@@ -189,16 +190,15 @@ const SeatManagement = () => {
     }
   };
 
-  const getSeatStatus = (seatId: string) => {
-    const seat = seats.find(s => s.id === seatId);
+  const getSeatStatus = (seatNumber: number) => {
+    const seat = seats.find(s => s.seat_number === seatNumber);
     if (!seat) return 'available';
     return seat.status;
   };
 
-  const renderSeat = (seatNumber: number, row: string) => {
-    const seatId = `${row}-${seatNumber}`;
-    const seatInfo = getSeatInfo(seatId);
-    const status = getSeatStatus(seatId);
+  const renderSeat = (seatNumber: number) => {
+    const seatInfo = getSeatInfo(seatNumber);
+    const status = getSeatStatus(seatNumber);
     
     let seatColor = 'bg-gray-100 text-gray-800 border-gray-300';
     
@@ -207,7 +207,7 @@ const SeatManagement = () => {
     }
 
     return (
-      <Dialog key={seatId}>
+      <Dialog key={seatNumber}>
         <DialogTrigger asChild>
           <button
             className={`
@@ -227,7 +227,7 @@ const SeatManagement = () => {
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Seat {seatId} Details</DialogTitle>
+            <DialogTitle>Seat {seatNumber} Details</DialogTitle>
             <DialogDescription>
               Manage this seat assignment and view details
             </DialogDescription>
@@ -261,7 +261,7 @@ const SeatManagement = () => {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => handleSeatAction("View Profile", seatId)}
+                    onClick={() => handleSeatAction("View Profile", seatNumber.toString())}
                   >
                     <Eye className="h-4 w-4 mr-2" />
                     View Profile
@@ -269,7 +269,7 @@ const SeatManagement = () => {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => handleSeatAction("Release Seat", seatId)}
+                    onClick={() => handleSeatAction("Release Seat", seatNumber.toString())}
                   >
                     <UserX className="h-4 w-4 mr-2" />
                     Release Seat
@@ -283,7 +283,7 @@ const SeatManagement = () => {
                 <Button
                   className="mt-3"
                   size="sm"
-                  onClick={() => handleSeatAction("Assign Seat", seatId)}
+                  onClick={() => handleSeatAction("Assign Seat", seatNumber.toString())}
                 >
                   Assign to Student
                 </Button>
@@ -303,7 +303,7 @@ const SeatManagement = () => {
     );
   }
 
-  const totalSeats = seats.length;
+  const totalSeats = 40; // Fixed total seats
   const occupiedSeats = seats.filter(seat => seat.status === 'occupied').length;
   const availableSeats = totalSeats - occupiedSeats;
   const activeSeats = seats.filter(seat => seat.status === 'occupied').length;
@@ -356,10 +356,10 @@ const SeatManagement = () => {
         <CardHeader>
           <CardTitle className="flex items-center">
             <Building className="h-5 w-5 mr-2" />
-            First Floor Layout
+            First Floor Layout (19 Seats)
           </CardTitle>
           <CardDescription>
-            Ground floor with 14 seats arranged in 3 rows
+            Ground floor with corner seats and 3 rows
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -387,20 +387,22 @@ const SeatManagement = () => {
             </div>
           </div>
 
-          {/* Door indicator */}
-          <div className="mb-4">
-            <div className="w-20 h-8 bg-orange-500 text-white flex items-center justify-center text-xs font-bold rounded">
-              DOOR
-            </div>
-          </div>
-
-          {/* First Floor Seat Grid */}
+          {/* First Floor Grid */}
           <div className="space-y-6">
             {firstFloorLayout.map((row) => (
               <div key={row.row} className="space-y-2">
                 <h3 className="font-medium text-gray-700">{row.label}</h3>
-                <div className="flex flex-wrap gap-2">
-                  {row.seats.map((seatNumber) => renderSeat(seatNumber, row.row))}
+                <div className="flex flex-wrap gap-2 relative">
+                  {row.seats.map((seatNumber) => renderSeat(seatNumber))}
+                  
+                  {/* Door in middle of floor - between seat 13 and other seats */}
+                  {row.row === 'B' && (
+                    <div className="absolute -bottom-16 left-1/2 transform -translate-x-1/2">
+                      <div className="w-20 h-12 bg-gray-500 text-white flex items-center justify-center text-xs font-bold rounded border-2 border-gray-600">
+                        DOOR
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -413,32 +415,34 @@ const SeatManagement = () => {
         <CardHeader>
           <CardTitle className="flex items-center">
             <Building2 className="h-5 w-5 mr-2" />
-            Second Floor Layout
+            Second Floor Layout (21 Seats)
           </CardTitle>
           <CardDescription>
-            Upper floor with 22 seats arranged in 4 rows
+            Upper floor with 4 rows and stairway access
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* Stair and Door indicator */}
-          <div className="mb-4 flex justify-end">
-            <div className="flex flex-col items-center">
-              <div className="w-16 h-6 bg-gray-600 text-white flex items-center justify-center text-xs font-bold rounded mb-1">
-                STAIR
-              </div>
-              <div className="w-16 h-6 bg-orange-500 text-white flex items-center justify-center text-xs font-bold rounded">
-                DOOR
-              </div>
-            </div>
-          </div>
-
-          {/* Second Floor Seat Grid */}
+          {/* Second Floor Grid */}
           <div className="space-y-6">
-            {secondFloorLayout.map((row) => (
+            {secondFloorLayout.map((row, index) => (
               <div key={row.row} className="space-y-2">
                 <h3 className="font-medium text-gray-700">{row.label}</h3>
-                <div className="flex flex-wrap gap-2">
-                  {row.seats.map((seatNumber) => renderSeat(seatNumber, row.row))}
+                <div className="flex flex-wrap gap-2 relative">
+                  {row.seats.map((seatNumber) => renderSeat(seatNumber))}
+                  
+                  {/* Stair and Door in front of 4th row (Row G) */}
+                  {index === 3 && (
+                    <div className="absolute -top-20 right-0">
+                      <div className="flex flex-col items-center">
+                        <div className="w-16 h-8 bg-gray-600 text-white flex items-center justify-center text-xs font-bold rounded mb-1">
+                          STAIR
+                        </div>
+                        <div className="w-16 h-8 bg-gray-500 text-white flex items-center justify-center text-xs font-bold rounded border-2 border-gray-600">
+                          DOOR
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
