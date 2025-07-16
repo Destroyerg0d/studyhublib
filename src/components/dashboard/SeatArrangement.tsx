@@ -4,20 +4,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Users, CheckCircle, X, User } from "lucide-react";
+import { Users, CheckCircle, User, Building, Building2 } from "lucide-react";
 
 const SeatArrangement = () => {
   const [selectedSeat, setSelectedSeat] = useState<string | null>(null);
-  const [bookedSeats, setBookedSeats] = useState<Set<string>>(new Set(['A-3', 'A-5', 'B-2', 'B-4', 'C-1', 'C-3', 'D-2', 'D-6']));
-  const [mySeat, setMySeat] = useState<string | null>('A-15'); // User's current seat
+  const [bookedSeats, setBookedSeats] = useState<Set<string>>(new Set(['L-A-3', 'L-A-5', 'L-B-2', 'U-C-1', 'U-C-3', 'U-D-2']));
+  const [mySeat, setMySeat] = useState<string | null>('L-A-15'); // User's current seat
   const { toast } = useToast();
 
-  // Define seat arrangement: 4 rows with different column counts
-  const seatRows = [
-    { row: 'A', seats: 5, label: 'Row 1' },
-    { row: 'B', seats: 5, label: 'Row 2' },
-    { row: 'C', seats: 5, label: 'Row 3' },
-    { row: 'D', seats: 6, label: 'Row 4' },
+  // Define seat arrangement: 2 floors with left and right sections
+  const lowerFloor = [
+    { section: 'L-A', seats: 9, label: 'Lower Floor - Section A' },
+    { section: 'L-B', seats: 9, label: 'Lower Floor - Section B' },
+  ];
+
+  const upperFloor = [
+    { section: 'U-C', seats: 9, label: 'Upper Floor - Section C' },
+    { section: 'U-D', seats: 9, label: 'Upper Floor - Section D' },
   ];
 
   const handleSeatClick = (seatId: string) => {
@@ -70,7 +73,7 @@ const SeatArrangement = () => {
     }
   };
 
-  const totalSeats = seatRows.reduce((sum, row) => sum + row.seats, 0);
+  const totalSeats = 36;
   const availableSeats = totalSeats - bookedSeats.size;
 
   return (
@@ -114,6 +117,55 @@ const SeatArrangement = () => {
         </Card>
       </div>
 
+      {/* Current Pricing Structure */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Users className="h-5 w-5 mr-2" />
+            Current Fees Structure
+          </CardTitle>
+          <CardDescription>
+            Available time slots and pricing
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="p-4 bg-blue-50 rounded-lg border">
+              <h4 className="font-semibold text-blue-900">FULL DAY</h4>
+              <p className="text-sm text-blue-700">8AM TO 10PM</p>
+              <p className="text-xl font-bold text-blue-900">₹1,000</p>
+              <p className="text-xs text-blue-600">One person for whole day</p>
+            </div>
+            <div className="p-4 bg-green-50 rounded-lg border">
+              <h4 className="font-semibold text-green-900">HALF DAY MORNING</h4>
+              <p className="text-sm text-green-700">8AM TO 3PM</p>
+              <p className="text-xl font-bold text-green-900">₹600</p>
+            </div>
+            <div className="p-4 bg-orange-50 rounded-lg border">
+              <h4 className="font-semibold text-orange-900">HALF DAY EVENING</h4>
+              <p className="text-sm text-orange-700">3PM TO 10PM</p>
+              <p className="text-xl font-bold text-orange-900">₹600</p>
+            </div>
+            <div className="p-4 bg-purple-50 rounded-lg border">
+              <h4 className="font-semibold text-purple-900">24 HOURS</h4>
+              <p className="text-sm text-purple-700">8AM TO 8AM</p>
+              <p className="text-xl font-bold text-purple-900">₹2,000</p>
+            </div>
+            <div className="p-4 bg-indigo-50 rounded-lg border">
+              <h4 className="font-semibold text-indigo-900">NIGHT SHIFT</h4>
+              <p className="text-sm text-indigo-700">10PM TO 6AM</p>
+              <p className="text-xl font-bold text-indigo-900">₹1,200</p>
+            </div>
+            <div className="p-4 bg-yellow-50 rounded-lg border">
+              <h4 className="font-semibold text-yellow-900">FULL SHIFT</h4>
+              <p className="text-sm text-yellow-700">Morning + Evening</p>
+              <p className="text-xl font-bold text-yellow-900">₹1,200</p>
+              <p className="text-xs text-yellow-600">2 people share the seat</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Current Seat Info */}
       {mySeat && (
         <Card className="bg-blue-50 border-blue-200">
@@ -128,7 +180,7 @@ const SeatArrangement = () => {
               <div>
                 <p className="text-lg font-semibold text-blue-900">Seat {mySeat}</p>
                 <p className="text-blue-700">
-                  Row {mySeat.charAt(0)}, Position {mySeat.split('-')[1]}
+                  {mySeat.startsWith('L-') ? 'Lower Floor' : 'Upper Floor'} - Section {mySeat.split('-')[1]}
                 </p>
               </div>
               <Badge className="bg-blue-500 text-white">Your Seat</Badge>
@@ -141,11 +193,11 @@ const SeatArrangement = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
-            <Users className="h-5 w-5 mr-2" />
-            Seat Arrangement
+            <Building className="h-5 w-5 mr-2" />
+            Lower Floor Layout
           </CardTitle>
           <CardDescription>
-            Click on an available seat to select and book it
+            Left and Right sections - Click on an available seat to select and book it
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -169,15 +221,60 @@ const SeatArrangement = () => {
             </div>
           </div>
 
-          {/* Seat Grid */}
+          {/* Lower Floor Grid */}
           <div className="space-y-6">
-            {seatRows.map((row) => (
-              <div key={row.row} className="space-y-2">
-                <h3 className="font-medium text-gray-700">{row.label}</h3>
+            {lowerFloor.map((section) => (
+              <div key={section.section} className="space-y-2">
+                <h3 className="font-medium text-gray-700">{section.label}</h3>
                 <div className="flex flex-wrap gap-2">
-                  {Array.from({ length: row.seats }, (_, i) => {
+                  {Array.from({ length: section.seats }, (_, i) => {
                     const seatNumber = i + 1;
-                    const seatId = `${row.row}-${seatNumber}`;
+                    const seatId = `${section.section}-${seatNumber}`;
+                    const status = getSeatStatus(seatId);
+                    
+                    return (
+                      <button
+                        key={seatId}
+                        onClick={() => handleSeatClick(seatId)}
+                        disabled={status === 'booked' || status === 'my-seat'}
+                        className={`
+                          w-12 h-12 rounded-lg border-2 text-xs font-medium
+                          flex items-center justify-center transition-colors
+                          ${getSeatColor(status)}
+                        `}
+                      >
+                        {seatNumber}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Upper Floor */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Building2 className="h-5 w-5 mr-2" />
+            Upper Floor Layout
+          </CardTitle>
+          <CardDescription>
+            Left and Right sections
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {/* Upper Floor Grid */}
+          <div className="space-y-6">
+            {upperFloor.map((section) => (
+              <div key={section.section} className="space-y-2">
+                <h3 className="font-medium text-gray-700">{section.label}</h3>
+                <div className="flex flex-wrap gap-2">
+                  {Array.from({ length: section.seats }, (_, i) => {
+                    const seatNumber = i + 1;
+                    const seatId = `${section.section}-${seatNumber}`;
                     const status = getSeatStatus(seatId);
                     
                     return (
@@ -207,7 +304,7 @@ const SeatArrangement = () => {
                 <div>
                   <p className="font-medium">Selected Seat: {selectedSeat}</p>
                   <p className="text-sm text-gray-600">
-                    Row {selectedSeat.charAt(0)}, Position {selectedSeat.split('-')[1]}
+                    {selectedSeat.startsWith('L-') ? 'Lower Floor' : 'Upper Floor'} - Section {selectedSeat.split('-')[1]}
                   </p>
                 </div>
                 <div className="space-x-2">
@@ -236,18 +333,18 @@ const SeatArrangement = () => {
               <h4 className="font-medium text-green-700 mb-2">✅ Booking Guidelines</h4>
               <ul className="space-y-1 text-gray-600">
                 <li>• Seats can only be booked after fee payment</li>
-                <li>• Booking duration matches your payment period</li>
-                <li>• You can change seats once per month</li>
-                <li>• Inform reception desk for any issues</li>
+                <li>• Full Day: One person occupies the seat all day</li>
+                <li>• Full Shift: Two people share (morning + evening)</li>
+                <li>• Night seats are not occupied during day hours</li>
               </ul>
             </div>
             <div>
               <h4 className="font-medium text-red-700 mb-2">❌ Restrictions</h4>
               <ul className="space-y-1 text-gray-600">
                 <li>• Cannot book multiple seats simultaneously</li>
-                <li>• Seat sharing is not allowed</li>
                 <li>• Late arrivals may lose seat for that day</li>
                 <li>• No reserving seats for others</li>
+                <li>• 24-hour bookings require special approval</li>
               </ul>
             </div>
           </div>
