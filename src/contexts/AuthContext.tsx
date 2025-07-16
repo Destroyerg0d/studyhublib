@@ -70,6 +70,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const createProfile = async (user: User) => {
     try {
       console.log('Creating profile for user:', user.email);
+      const now = new Date().toISOString();
       const profileData = {
         id: user.id,
         email: user.email || '',
@@ -81,7 +82,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         date_of_birth: null,
         emergency_contact_name: null,
         emergency_contact_phone: null,
-        emergency_contact_relation: null
+        emergency_contact_relation: null,
+        created_at: now,
+        updated_at: now
       };
 
       const { error } = await supabase
