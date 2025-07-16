@@ -6,15 +6,19 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Users, CheckCircle, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Tables } from "@/integrations/supabase/types";
 
 type Seat = Tables<'seats'>;
+type Subscription = Tables<'subscriptions'>;
 
 const SeatArrangement = () => {
   const [selectedSeat, setSelectedSeat] = useState<string | null>(null);
   const [seats, setSeats] = useState<Seat[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { user, profile } = useAuth();
 
   // Define seat arrangement: Lower and Upper floors
   const seatLayout = {
@@ -38,6 +42,7 @@ const SeatArrangement = () => {
 
   useEffect(() => {
     fetchSeats();
+    fetchSubscriptions();
 
     // Set up real-time subscriptions
     const seatsChannel = supabase
@@ -45,8 +50,14 @@ const SeatArrangement = () => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'seats' }, fetchSeats)
       .subscribe();
 
+    const subscriptionsChannel = supabase
+      .channel('subscriptions-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'subscriptions' }, fetchSubscriptions)
+      .subscribe();
+
     return () => {
       supabase.removeChannel(seatsChannel);
+      supabase.removeChannel(subscriptionsChannel);
     };
   }, []);
 
@@ -72,18 +83,52 @@ const SeatArrangement = () => {
     }
   };
 
+  const fetchSubscriptions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('status', 'active');
+
+      if (error) throw error;
+      setSubscriptions(data || []);
+    } catch (error) {
+      console.error('Error fetching subscriptions:', error);
+    }
+  };
+
   const handleSeatClick = (seatId: string) => {
     const seat = seats.find(s => s.id === seatId);
     if (!seat || seat.status !== 'available') return;
     
+    // Check if user already has an active subscription
+    const userSubscription = subscriptions.find(s => s.user_id === user?.id);
+    if (userSubscription && userSubscription.seat_id !== seatId) {
+      toast({
+        title: "Seat change required",
+        description: "You already have a seat. Please contact admin to change seats.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSelectedSeat(selectedSeat === seatId ? null : seatId);
   };
 
   const handleBookSeat = async () => {
-    if (!selectedSeat) {
+    if (!selectedSeat || !user || !profile) {
       toast({
         title: "Please select a seat",
         description: "Choose an available seat to book.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!profile.verified) {
+      toast({
+        title: "Verification required",
+        description: "Please complete your profile verification before booking a seat.",
         variant: "destructive",
       });
       return;
@@ -94,7 +139,8 @@ const SeatArrangement = () => {
       const { error: seatError } = await supabase
         .from('seats')
         .update({ 
-          status: 'occupied'
+          status: 'occupied',
+          assigned_user_id: user.id
         })
         .eq('id', selectedSeat);
 
@@ -103,7 +149,7 @@ const SeatArrangement = () => {
       setSelectedSeat(null);
       toast({
         title: "Seat booked successfully!",
-        description: `You have booked seat ${selectedSeat}.`,
+        description: `You have booked seat ${selectedSeat}. Please complete payment to activate your subscription.`,
       });
     } catch (error) {
       console.error('Error booking seat:', error);
@@ -119,6 +165,7 @@ const SeatArrangement = () => {
     const seat = seats.find(s => s.id === seatId);
     if (!seat) return 'available';
     
+    if (seat.assigned_user_id === user?.id) return 'my-seat';
     if (seat.status === 'occupied') return 'occupied';
     if (seat.status === 'maintenance') return 'maintenance';
     if (selectedSeat === seatId) return 'selected';
@@ -127,6 +174,7 @@ const SeatArrangement = () => {
 
   const getSeatColor = (status: string) => {
     switch (status) {
+      case 'my-seat': return 'bg-blue-500 text-white border-blue-600';
       case 'occupied': return 'bg-red-100 text-red-800 border-red-300 cursor-not-allowed';
       case 'maintenance': return 'bg-orange-100 text-orange-800 border-orange-300 cursor-not-allowed';
       case 'selected': return 'bg-yellow-200 text-yellow-900 border-yellow-400';
@@ -135,10 +183,20 @@ const SeatArrangement = () => {
     }
   };
 
+  const getOccupantName = (seatId: string) => {
+    const seat = seats.find(s => s.id === seatId);
+    if (!seat?.assigned_user_id) return '';
+    
+    const subscription = subscriptions.find(s => s.seat_id === seatId);
+    // This would need a join with profiles table to get the actual name
+    return subscription ? 'Occupied' : '';
+  };
+
   const totalSeats = Object.values(seatLayout.lowerFloor.leftSide).reduce((sum, row) => sum + row.seats, 0) +
                    Object.values(seatLayout.upperFloor.rightSide).reduce((sum, row) => sum + row.seats, 0);
   const occupiedSeats = seats.filter(s => s.status === 'occupied').length;
   const availableSeats = totalSeats - occupiedSeats;
+  const mySeats = seats.filter(s => s.assigned_user_id === user?.id);
 
   if (loading) {
     return <div className="flex justify-center items-center h-64">Loading seats...</div>;
@@ -158,12 +216,13 @@ const SeatArrangement = () => {
               const seatNumber = i + 1;
               const seatId = `${row.row}-${seatNumber}`;
               const status = getSeatStatus(seatId);
+              const occupantName = getOccupantName(seatId);
               
               return (
                 <button
                   key={seatId}
                   onClick={() => handleSeatClick(seatId)}
-                  disabled={status === 'occupied' || status === 'maintenance'}
+                  disabled={status === 'occupied' || status === 'maintenance' || status === 'my-seat'}
                   className={`
                     w-16 h-16 rounded-lg border-2 text-xs font-medium
                     flex flex-col items-center justify-center transition-colors
@@ -171,8 +230,13 @@ const SeatArrangement = () => {
                   `}
                 >
                   <span className="font-bold">{seatNumber}</span>
-                  {status === 'occupied' && (
-                    <span className="text-[8px] leading-none">TAKEN</span>
+                  {occupantName && (
+                    <span className="text-[8px] leading-none truncate w-full text-center">
+                      {occupantName}
+                    </span>
+                  )}
+                  {status === 'my-seat' && (
+                    <span className="text-[8px] leading-none">YOU</span>
                   )}
                 </button>
               );
@@ -186,7 +250,7 @@ const SeatArrangement = () => {
   return (
     <div className="space-y-6">
       {/* Status Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="flex items-center justify-center p-6">
             <div className="text-center">
@@ -213,7 +277,39 @@ const SeatArrangement = () => {
             </div>
           </CardContent>
         </Card>
+        
+        <Card>
+          <CardContent className="flex items-center justify-center p-6">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">{mySeats.length > 0 ? mySeats[0].id : 'None'}</div>
+              <div className="text-sm text-gray-600">My Seat</div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Current Seat Info */}
+      {mySeats.length > 0 && (
+        <Card className="bg-blue-50 border-blue-200">
+          <CardHeader>
+            <div className="flex items-center">
+              <User className="h-5 w-5 text-blue-600 mr-2" />
+              <CardTitle className="text-blue-900">Your Current Seat</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-lg font-semibold text-blue-900">Seat {mySeats[0].id}</p>
+                <p className="text-blue-700">
+                  Row {mySeats[0].row_letter}, Position {mySeats[0].seat_number}
+                </p>
+              </div>
+              <Badge className="bg-blue-500 text-white">Your Seat</Badge>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Seat Map */}
       <Card>
@@ -236,6 +332,10 @@ const SeatArrangement = () => {
             <div className="flex items-center">
               <div className="w-4 h-4 bg-red-100 border border-red-300 rounded mr-2"></div>
               <span className="text-sm">Occupied</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-4 h-4 bg-blue-500 border border-blue-600 rounded mr-2"></div>
+              <span className="text-sm">Your Seat</span>
             </div>
             <div className="flex items-center">
               <div className="w-4 h-4 bg-yellow-200 border border-yellow-400 rounded mr-2"></div>
@@ -295,9 +395,9 @@ const SeatArrangement = () => {
             <div>
               <h4 className="font-medium text-green-700 mb-2">✅ Booking Guidelines</h4>
               <ul className="space-y-1 text-gray-600">
-                <li>• Seats can be booked anytime</li>
-                <li>• First come, first served basis</li>
-                <li>• You can change seats as needed</li>
+                <li>• Seats can only be booked after verification</li>
+                <li>• Complete payment to activate your seat</li>
+                <li>• You can change seats once per month</li>
                 <li>• Inform reception desk for any issues</li>
               </ul>
             </div>

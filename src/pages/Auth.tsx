@@ -1,61 +1,127 @@
-
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BookOpen } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BookOpen, ArrowLeft } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useEffect } from "react";
 
 const Auth = () => {
-  const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const { login, register, user, profile } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user && profile) {
+      console.log('User already logged in, redirecting based on role:', profile.role);
+      if (profile.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
+    }
+  }, [user, profile, navigate]);
+
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
+    
+    const formData = new FormData(e.currentTarget);
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+
+    console.log('Login form submitted with email:', email);
 
     try {
-      if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        
-        if (error) throw error;
-        
+      const result = await login(email, password);
+      if (result.success) {
         toast({
           title: "Welcome back!",
-          description: "You have been signed in successfully.",
+          description: "You have been successfully logged in.",
         });
-        
-        navigate("/dashboard");
+        // Navigation will be handled by the useEffect above
       } else {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/dashboard`,
-          },
-        });
-        
-        if (error) throw error;
-        
+        console.error('Login failed:', result.error);
         toast({
-          title: "Account created!",
-          description: "Please check your email to verify your account.",
+          title: "Login failed",
+          description: result.error || "Invalid email or password. Please check your credentials and try again.",
+          variant: "destructive",
         });
       }
-    } catch (error: any) {
+    } catch (error) {
+      console.error('Login error:', error);
       toast({
         title: "Error",
-        description: error.message,
+        description: "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsLoading(true);
+    
+    const formData = new FormData(e.currentTarget);
+    const name = formData.get('name') as string;
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+    const confirmPassword = formData.get('confirmPassword') as string;
+
+    // Basic validation
+    if (password !== confirmPassword) {
+      toast({
+        title: "Password mismatch",
+        description: "Please make sure both passwords match.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    console.log('Registration form submitted with email:', email);
+
+    try {
+      const result = await register(email, password, name);
+      if (result.success) {
+        toast({
+          title: "Registration successful!",
+          description: "Please check your email to verify your account before logging in.",
+        });
+        // Switch to login tab after successful registration
+        const loginTab = document.querySelector('[value="login"]') as HTMLElement;
+        loginTab?.click();
+      } else {
+        console.error('Registration failed:', result.error);
+        toast({
+          title: "Registration failed",
+          description: result.error || "Please check your information and try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      toast({
+        title: "Error",
+        description: "Something went wrong. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -66,86 +132,120 @@ const Auth = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center">
-            <BookOpen className="h-10 w-10 text-blue-600" />
-            <span className="ml-3 text-2xl font-bold text-gray-900">The Study Hub</span>
+        <div className="flex items-center justify-center mb-8">
+          <Link to="/" className="flex items-center text-blue-600 hover:text-blue-700">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Home
           </Link>
         </div>
 
         <Card>
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">
-              {isLogin ? "Welcome back" : "Create account"}
-            </CardTitle>
-            <CardDescription>
-              {isLogin 
-                ? "Sign in to your account to continue" 
-                : "Sign up to get started with The Study Hub"
-              }
-            </CardDescription>
+            <div className="flex items-center justify-center mb-4">
+              <BookOpen className="h-8 w-8 text-blue-600" />
+            </div>
+            <CardTitle className="text-2xl">The Study Hub</CardTitle>
+            <CardDescription>Access your premium study environment</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
+            <Tabs defaultValue="login" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="login">Login</TabsTrigger>
+                <TabsTrigger value="register">Register</TabsTrigger>
+              </TabsList>
               
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={6}
-                />
-              </div>
-
-              <Button 
-                type="submit" 
-                className="w-full" 
-                disabled={isLoading}
-              >
-                {isLoading 
-                  ? (isLogin ? "Signing in..." : "Creating account...") 
-                  : (isLogin ? "Sign in" : "Create account")
-                }
-              </Button>
-            </form>
-
-            <div className="mt-6 text-center">
-              <p className="text-sm text-gray-600">
-                {isLogin ? "Don't have an account?" : "Already have an account?"}
-                <Button
-                  variant="link"
-                  className="p-0 ml-1 h-auto font-normal"
-                  onClick={() => setIsLogin(!isLogin)}
-                >
-                  {isLogin ? "Sign up" : "Sign in"}
-                </Button>
-              </p>
-            </div>
+              <TabsContent value="login">
+                <form onSubmit={handleLogin} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="login-email">Email</Label>
+                    <Input
+                      id="login-email"
+                      name="email"
+                      type="email"
+                      placeholder="your@email.com"
+                      defaultValue="admin@studyhub.com"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="login-password">Password</Label>
+                    <Input
+                      id="login-password"
+                      name="password"
+                      type="password"
+                      defaultValue="admin123"
+                      required
+                    />
+                  </div>
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Signing in..." : "Sign In"}
+                  </Button>
+                  <div className="text-sm text-gray-600 text-center space-y-1">
+                    <div>Demo Accounts:</div>
+                    <div>admin@studyhub.com / admin123 (Admin)</div>
+                    <div>hossenbiddoth@gmail.com (Admin)</div>
+                  </div>
+                </form>
+              </TabsContent>
+              
+              <TabsContent value="register">
+                <form onSubmit={handleRegister} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="register-name">Full Name</Label>
+                    <Input
+                      id="register-name"
+                      name="name"
+                      type="text"
+                      placeholder="Your full name"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="register-email">Email</Label>
+                    <Input
+                      id="register-email"
+                      name="email"
+                      type="email"
+                      placeholder="your@email.com"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="register-password">Password</Label>
+                    <Input
+                      id="register-password"
+                      name="password"
+                      type="password"
+                      placeholder="At least 6 characters"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="register-confirm-password">Confirm Password</Label>
+                    <Input
+                      id="register-confirm-password"
+                      name="confirmPassword"
+                      type="password"
+                      placeholder="Confirm your password"
+                      required
+                    />
+                  </div>
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Creating account..." : "Create Account"}
+                  </Button>
+                </form>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
-
-        {/* Demo credentials for testing */}
-        <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-          <p className="text-sm text-blue-800 font-medium mb-2">Demo Credentials:</p>
-          <p className="text-sm text-blue-700">Email: hossenbiddoth@gmail.com</p>
-          <p className="text-sm text-blue-700">Password: admin123</p>
-        </div>
       </div>
     </div>
   );
