@@ -1,8 +1,11 @@
-
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import WorldClock from "@/components/common/WorldClock";
 import {
   Users,
   CreditCard,
@@ -14,11 +17,135 @@ import {
   IndianRupee,
 } from "lucide-react";
 
+interface DashboardStats {
+  totalStudents: number;
+  monthlyRevenue: number;
+  occupiedSeats: { occupied: number; total: number };
+  pendingVerifications: number;
+}
+
 const AdminHome = () => {
-  const stats = [
+  const [stats, setStats] = useState<DashboardStats>({
+    totalStudents: 0,
+    monthlyRevenue: 0,
+    occupiedSeats: { occupied: 0, total: 0 },
+    pendingVerifications: 0
+  });
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  const fetchDashboardStats = async () => {
+    try {
+      // Fetch total students
+      const { data: studentsData, error: studentsError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'student');
+
+      if (studentsError) throw studentsError;
+
+      // Fetch monthly revenue from active subscriptions
+      const currentMonth = new Date();
+      const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+      const lastDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+
+      const { data: revenueData, error: revenueError } = await supabase
+        .from('subscriptions')
+        .select('amount_paid')
+        .gte('payment_date', firstDay.toISOString())
+        .lte('payment_date', lastDay.toISOString())
+        .eq('status', 'active');
+
+      if (revenueError) throw revenueError;
+
+      // Fetch seat occupancy
+      const { data: seatsData, error: seatsError } = await supabase
+        .from('seats')
+        .select('id, status');
+
+      if (seatsError) throw seatsError;
+
+      // Fetch pending verifications
+      const { data: verificationData, error: verificationError } = await supabase
+        .from('verification_requests')
+        .select('id')
+        .eq('status', 'pending');
+
+      if (verificationError) throw verificationError;
+
+      // Calculate stats
+      const totalStudents = studentsData?.length || 0;
+      const monthlyRevenue = revenueData?.reduce((sum, sub) => sum + (Number(sub.amount_paid) || 0), 0) || 0;
+      const totalSeats = seatsData?.length || 0;
+      const occupiedSeats = seatsData?.filter(seat => seat.status === 'occupied').length || 0;
+      const pendingVerifications = verificationData?.length || 0;
+
+      setStats({
+        totalStudents,
+        monthlyRevenue,
+        occupiedSeats: { occupied: occupiedSeats, total: totalSeats },
+        pendingVerifications
+      });
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch dashboard statistics",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardStats();
+
+    // Set up real-time subscriptions
+    const profilesChannel = supabase
+      .channel('admin-dashboard-profiles')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'profiles' },
+        () => fetchDashboardStats()
+      )
+      .subscribe();
+
+    const subscriptionsChannel = supabase
+      .channel('admin-dashboard-subscriptions')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'subscriptions' },
+        () => fetchDashboardStats()
+      )
+      .subscribe();
+
+    const seatsChannel = supabase
+      .channel('admin-dashboard-seats')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'seats' },
+        () => fetchDashboardStats()
+      )
+      .subscribe();
+
+    const verificationsChannel = supabase
+      .channel('admin-dashboard-verifications')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'verification_requests' },
+        () => fetchDashboardStats()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(profilesChannel);
+      supabase.removeChannel(subscriptionsChannel);
+      supabase.removeChannel(seatsChannel);
+      supabase.removeChannel(verificationsChannel);
+    };
+  }, []);
+
+  const statsCards = [
     {
       title: "Total Students",
-      value: "147",
+      value: loading ? "..." : stats.totalStudents.toString(),
       change: "+12%",
       changeType: "increase" as const,
       icon: Users,
@@ -26,7 +153,7 @@ const AdminHome = () => {
     },
     {
       title: "Monthly Revenue",
-      value: "₹1,47,000",
+      value: loading ? "..." : `₹${stats.monthlyRevenue.toLocaleString()}`,
       change: "+8%",
       changeType: "increase" as const,
       icon: IndianRupee,
@@ -34,15 +161,15 @@ const AdminHome = () => {
     },
     {
       title: "Occupied Seats",
-      value: "19/21",
-      change: "90%",
+      value: loading ? "..." : `${stats.occupiedSeats.occupied}/${stats.occupiedSeats.total}`,
+      change: stats.occupiedSeats.total > 0 ? `${Math.round((stats.occupiedSeats.occupied / stats.occupiedSeats.total) * 100)}%` : "0%",
       changeType: "neutral" as const,
       icon: Calendar,
       color: "text-purple-600",
     },
     {
       title: "Pending Verifications",
-      value: "7",
+      value: loading ? "..." : stats.pendingVerifications.toString(),
       change: "-3",
       changeType: "decrease" as const,
       icon: AlertTriangle,
@@ -86,10 +213,10 @@ const AdminHome = () => {
   const quickActions = [
     {
       title: "Verify Students",
-      description: "7 pending verifications",
+      description: `${stats.pendingVerifications} pending verifications`,
       link: "/admin/verification",
       color: "bg-orange-500",
-      urgent: true,
+      urgent: stats.pendingVerifications > 0,
     },
     {
       title: "Manage Seats",
@@ -132,17 +259,20 @@ const AdminHome = () => {
 
   return (
     <div className="space-y-6">
-      {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg p-6">
-        <h1 className="text-2xl font-bold mb-2">Admin Dashboard</h1>
-        <p className="text-red-100">
-          Manage The Study Hub library operations and monitor all activities.
-        </p>
+      {/* Welcome Section with World Clock */}
+      <div className="grid lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg p-6">
+          <h1 className="text-2xl font-bold mb-2">Admin Dashboard</h1>
+          <p className="text-red-100">
+            Manage The Study Hub library operations and monitor all activities.
+          </p>
+        </div>
+        <WorldClock />
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat) => {
+        {statsCards.map((stat) => {
           const Icon = stat.icon;
           return (
             <Card key={stat.title}>
@@ -254,7 +384,7 @@ const AdminHome = () => {
                   <AlertTriangle className="h-4 w-4 text-yellow-500 mr-2" />
                   <span className="text-sm">Pending Reviews</span>
                 </div>
-                <Badge className="bg-yellow-100 text-yellow-800">7 Items</Badge>
+                <Badge className="bg-yellow-100 text-yellow-800">{stats.pendingVerifications} Items</Badge>
               </div>
             </div>
           </CardContent>
@@ -265,24 +395,26 @@ const AdminHome = () => {
       <Card>
         <CardHeader>
           <CardTitle>This Month's Summary</CardTitle>
-          <CardDescription>Key performance indicators for December 2024</CardDescription>
+          <CardDescription>Key performance indicators for {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid md:grid-cols-4 gap-6">
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">147</div>
+              <div className="text-2xl font-bold text-blue-600">{stats.totalStudents}</div>
               <div className="text-sm text-gray-600">Total Students</div>
-              <div className="text-xs text-green-600">+12% from last month</div>
+              <div className="text-xs text-green-600">Real-time data</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">₹1,47,000</div>
+              <div className="text-2xl font-bold text-green-600">₹{stats.monthlyRevenue.toLocaleString()}</div>
               <div className="text-sm text-gray-600">Revenue Generated</div>
-              <div className="text-xs text-green-600">+8% from last month</div>
+              <div className="text-xs text-green-600">This month</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">90%</div>
+              <div className="text-2xl font-bold text-purple-600">
+                {stats.occupiedSeats.total > 0 ? Math.round((stats.occupiedSeats.occupied / stats.occupiedSeats.total) * 100) : 0}%
+              </div>
               <div className="text-sm text-gray-600">Seat Occupancy</div>
-              <div className="text-xs text-blue-600">Optimal utilization</div>
+              <div className="text-xs text-blue-600">Live tracking</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-orange-600">95%</div>

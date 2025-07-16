@@ -1,8 +1,8 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
+import WorldClock from "@/components/common/WorldClock";
 import {
   Calendar,
   CreditCard,
@@ -49,12 +49,15 @@ const DashboardHome = () => {
 
   return (
     <div className="space-y-6">
-      {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg p-6">
-        <h1 className="text-2xl font-bold mb-2">Welcome back, {profile?.name}!</h1>
-        <p className="text-blue-100">
-          Ready to continue your study journey? Your premium study environment awaits.
-        </p>
+      {/* Welcome Section with World Clock */}
+      <div className="grid lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg p-6">
+          <h1 className="text-2xl font-bold mb-2">Welcome back, {profile?.name}!</h1>
+          <p className="text-blue-100">
+            Ready to continue your study journey? Your premium study environment awaits.
+          </p>
+        </div>
+        <WorldClock />
       </div>
 
       {/* Status Alert */}
