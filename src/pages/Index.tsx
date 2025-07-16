@@ -543,11 +543,28 @@ const Index = () => {
             
             <div>
               <h3 className="text-2xl font-bold text-gray-900 mb-6">Visit Us</h3>
-              <div className="bg-gray-200 h-64 rounded-lg flex items-center justify-center">
-                <div className="text-center text-gray-500">
-                  <MapPin className="h-12 w-12 mx-auto mb-2" />
-                  <p>Interactive map coming soon</p>
-                </div>
+              <div className="rounded-lg overflow-hidden shadow-lg">
+                <iframe
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d461.5859956443969!2d88.44406059169796!3d22.59020959542983!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a0275f0e945cff9%3A0x7b2e9ba4a9f8b1c3!2sThe%20Study%20Hub!5e0!3m2!1sen!2sin!4v1642582800000!5m2!1sen!2sin"
+                  width="100%"
+                  height="300"
+                  style={{ border: 0 }}
+                  allowFullScreen
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  className="w-full h-80"
+                ></iframe>
+              </div>
+              <div className="mt-4 text-center">
+                <a 
+                  href="https://maps.app.goo.gl/hJc7FlLyWEumnJcVU" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  <MapPin className="h-4 w-4 mr-2" />
+                  Open in Google Maps
+                </a>
               </div>
             </div>
           </div>
