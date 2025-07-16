@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -59,6 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(session?.user ?? null);
       
       if (session?.user) {
+        // Use a timeout to prevent potential deadlocks
         setTimeout(() => {
           fetchOrCreateProfile(session.user.id, session.user.email!, session.user.user_metadata?.name);
         }, 100);
@@ -83,27 +83,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (error && error.code === 'PGRST116') {
-        // Profile doesn't exist, create it
+        // Profile doesn't exist, create it using the service role
         console.log('Creating new profile for:', email);
+        
+        // Use upsert instead of insert to handle race conditions
         const { data: newProfile, error: createError } = await supabase
           .from('profiles')
-          .insert({
+          .upsert({
             id: userId,
             email: email,
             name: name || email.split('@')[0],
             role: email === 'admin@studyhub.com' || email === 'hossenbiddoth@gmail.com' ? 'admin' : 'student',
             verified: email === 'admin@studyhub.com' || email === 'hossenbiddoth@gmail.com'
+          }, { 
+            onConflict: 'id',
+            ignoreDuplicates: false 
           })
           .select()
           .single();
 
         if (createError) {
           console.error('Error creating profile:', createError);
-          setLoading(false);
-          return;
+          // If profile creation fails, try to fetch again in case it was created by another process
+          const { data: existingProfile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
+          
+          if (existingProfile) {
+            profile = existingProfile;
+          } else {
+            setLoading(false);
+            return;
+          }
+        } else {
+          profile = newProfile;
         }
-        
-        profile = newProfile;
       } else if (error) {
         console.error('Error fetching profile:', error);
         setLoading(false);
