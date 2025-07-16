@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,13 +19,19 @@ const Auth = () => {
 
   // Redirect if already logged in
   useEffect(() => {
-    if (user && profile && !loading) {
-      console.log('User already logged in, redirecting based on role:', profile.role);
-      if (profile.role === 'admin') {
-        navigate('/admin', { replace: true });
-      } else {
-        navigate('/dashboard', { replace: true });
-      }
+    console.log('Auth page - User:', user?.email, 'Profile:', profile?.role, 'Loading:', loading);
+    
+    if (!loading && user && profile) {
+      console.log('Redirecting authenticated user with role:', profile.role);
+      setTimeout(() => {
+        if (profile.role === 'admin') {
+          console.log('Redirecting to admin panel');
+          navigate('/admin', { replace: true });
+        } else {
+          console.log('Redirecting to dashboard');
+          navigate('/dashboard', { replace: true });
+        }
+      }, 100);
     }
   }, [user, profile, loading, navigate]);
 
@@ -36,16 +43,18 @@ const Auth = () => {
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
 
-    console.log('Login form submitted with email:', email);
+    console.log('Login attempt with email:', email);
 
     try {
       const result = await login(email, password);
+      console.log('Login result:', result);
+      
       if (result.success) {
         toast({
           title: "Welcome back!",
           description: "You have been successfully logged in.",
         });
-        // Don't navigate here - let the useEffect handle it after profile is loaded
+        // Redirect will be handled by useEffect when profile loads
       } else {
         console.error('Login failed:', result.error);
         toast({
@@ -97,7 +106,7 @@ const Auth = () => {
       return;
     }
 
-    console.log('Registration form submitted with email:', email);
+    console.log('Registration attempt with email:', email);
 
     try {
       const result = await register(email, password, name);
@@ -128,6 +137,15 @@ const Auth = () => {
       setIsLoading(false);
     }
   };
+
+  // Show loading if we're checking auth state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">

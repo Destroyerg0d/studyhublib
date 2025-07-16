@@ -11,13 +11,12 @@ interface AuthContextType {
   profile: Profile | null;
   session: Session | null;
   loading: boolean;
-  isLoading: boolean; // Alias for loading
+  isLoading: boolean;
   signUp: (email: string, password: string, name: string) => Promise<{ error: any; success?: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: any; success?: boolean }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<{ error: any }>;
   refreshProfile: () => Promise<void>;
-  // Aliases for backward compatibility
   register: (email: string, password: string, name: string) => Promise<{ error: any; success?: boolean }>;
   login: (email: string, password: string) => Promise<{ error: any; success?: boolean }>;
   logout: () => Promise<void>;
@@ -40,30 +39,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener first
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session:', session?.user?.email);
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        fetchOrCreateProfile(session.user.id, session.user.email!, session.user.user_metadata?.name);
+      } else {
+        setLoading(false);
+      }
+    });
+
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event, session?.user?.email);
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        // Defer profile fetching to prevent deadlocks
         setTimeout(() => {
           fetchOrCreateProfile(session.user.id, session.user.email!, session.user.user_metadata?.name);
-        }, 0);
+        }, 100);
       } else {
         setProfile(null);
-        setLoading(false);
-      }
-    });
-
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchOrCreateProfile(session.user.id, session.user.email!, session.user.user_metadata?.name);
-      } else {
         setLoading(false);
       }
     });
@@ -73,42 +73,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchOrCreateProfile = async (userId: string, email: string, name?: string) => {
     try {
-      console.log('Fetching profile for user:', userId);
-      const { data, error } = await supabase
+      console.log('Fetching/creating profile for user:', userId, email);
+      
+      // First try to fetch existing profile
+      let { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
 
-      if (error) {
-        if (error.code === 'PGRST116') {
-          // No profile found, create one
-          console.log('No profile found, creating one for user:', userId);
-          const { data: newProfile, error: createError } = await supabase
-            .from('profiles')
-            .insert({
-              id: userId,
-              email: email,
-              name: name || email.split('@')[0],
-              role: email === 'admin@studyhub.com' || email === 'hossenbiddoth@gmail.com' ? 'admin' : 'student',
-              verified: email === 'admin@studyhub.com' || email === 'hossenbiddoth@gmail.com'
-            })
-            .select()
-            .single();
+      if (error && error.code === 'PGRST116') {
+        // Profile doesn't exist, create it
+        console.log('Creating new profile for:', email);
+        const { data: newProfile, error: createError } = await supabase
+          .from('profiles')
+          .insert({
+            id: userId,
+            email: email,
+            name: name || email.split('@')[0],
+            role: email === 'admin@studyhub.com' || email === 'hossenbiddoth@gmail.com' ? 'admin' : 'student',
+            verified: email === 'admin@studyhub.com' || email === 'hossenbiddoth@gmail.com'
+          })
+          .select()
+          .single();
 
-          if (createError) {
-            console.error('Error creating profile:', createError);
-          } else {
-            console.log('Profile created:', newProfile);
-            setProfile(newProfile);
-          }
-        } else {
-          console.error('Error fetching profile:', error);
+        if (createError) {
+          console.error('Error creating profile:', createError);
+          setLoading(false);
+          return;
         }
-      } else if (data) {
-        console.log('Profile fetched:', data);
-        setProfile(data);
+        
+        profile = newProfile;
+      } else if (error) {
+        console.error('Error fetching profile:', error);
+        setLoading(false);
+        return;
       }
+
+      console.log('Profile loaded:', profile);
+      setProfile(profile);
     } catch (error) {
       console.error('Error in fetchOrCreateProfile:', error);
     } finally {
@@ -167,6 +170,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(null);
         setProfile(null);
         setSession(null);
+        window.location.href = '/';
       }
     } catch (error) {
       console.error('Error signing out:', error);
@@ -227,13 +231,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     profile,
     session,
     loading,
-    isLoading: loading, // Alias
+    isLoading: loading,
     signUp,
     signIn,
     signOut,
     updateProfile,
     refreshProfile,
-    // Aliases for backward compatibility
     register: signUp,
     login: signIn,
     logout: signOut,

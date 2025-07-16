@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,51 +37,51 @@ const Index = () => {
     "/lovable-uploads/607f8b56-97ae-4f18-ae19-6fd686fd3cdd.png"
   ];
 
-  // Static plans including the new shift options
+  // Updated static plans with new pricing structure
   const staticPlans = [
     {
       id: "morning-shift",
-      name: "Morning Shift",
+      name: "Half Day Morning",
       price: 600,
       duration_months: 1,
       type: "morning",
-      features: ["6:00 AM - 2:00 PM Access", "High-Speed WiFi", "Comfortable Seating", "Security"],
+      features: ["8:00 AM - 3:00 PM Access", "High-Speed WiFi", "Comfortable Seating", "Security"],
       popular: false
     },
     {
       id: "evening-shift", 
-      name: "Evening Shift",
+      name: "Half Day Evening",
       price: 600,
       duration_months: 1,
       type: "evening",
-      features: ["2:00 PM - 10:00 PM Access", "High-Speed WiFi", "Comfortable Seating", "Security"],
+      features: ["3:00 PM - 10:00 PM Access", "High-Speed WiFi", "Comfortable Seating", "Security"],
       popular: false
     },
     {
-      id: "day-plan",
-      name: "Day Plan",
+      id: "full-day-plan",
+      name: "Full Day",
       price: 1000,
       duration_months: 1,
-      type: "day",
+      type: "full-day",
       features: ["8:00 AM - 10:00 PM Access", "High-Speed WiFi", "Comfortable Seating", "Security"],
       popular: true
     },
     {
-      id: "night-plan",
-      name: "Night Plan", 
-      price: 1400,
+      id: "night-shift",
+      name: "Night Shift", 
+      price: 1200,
       duration_months: 1,
       type: "night",
       features: ["10:00 PM - 6:00 AM Access", "High-Speed WiFi", "Comfortable Seating", "Security Deposit Required"],
       popular: false
     },
     {
-      id: "24-7-plan",
-      name: "24/7 Plan",
+      id: "24-hours-plan",
+      name: "24 Hours Plan",
       price: 2000,
       duration_months: 1,
-      type: "24/7",
-      features: ["24/7 Unlimited Access", "High-Speed WiFi", "Comfortable Seating", "Priority Support"],
+      type: "24-hours",
+      features: ["8:00 AM - 8:00 AM (24 Hours)", "High-Speed WiFi", "Comfortable Seating", "Priority Support"],
       popular: false
     }
   ];
@@ -162,6 +161,7 @@ const Index = () => {
 
   const availableSeats = seats.filter(seat => seat.status === 'available').length;
   const occupiedSeats = seats.filter(seat => seat.status === 'occupied').length;
+  const totalSeats = 36; // Updated total seats
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
@@ -210,8 +210,8 @@ const Index = () => {
               <span className="text-blue-400 drop-shadow-2xl"> Environment</span>
             </h2>
             <p className="text-xl md:text-2xl mb-8 max-w-3xl mx-auto text-white/95 animate-fade-in drop-shadow-lg font-medium">
-              Experience premium library facilities with 24/7 access, comfortable wooden seating, 
-              and a peaceful environment designed for serious students.
+              Experience premium library facilities with flexible timing options, 
+              comfortable seating, and a peaceful environment designed for serious students.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in">
               <Link to="/auth">
@@ -233,7 +233,7 @@ const Index = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center">
             <div className="p-6">
-              <div className="text-4xl font-bold text-blue-600 mb-2">{seats.length}</div>
+              <div className="text-4xl font-bold text-blue-600 mb-2">{totalSeats}</div>
               <div className="text-gray-600">Total Seats</div>
             </div>
             <div className="p-6">
@@ -394,12 +394,12 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Pricing Section - Updated with new shift options */}
+      {/* Pricing Section - Updated with new pricing structure */}
       <section id="pricing" className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">Choose Your Plan</h2>
-            <p className="text-xl text-gray-600">Flexible options to suit your study schedule</p>
+            <p className="text-xl text-gray-600">Flexible options to suit your study schedule and budget</p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-8">
@@ -417,11 +417,11 @@ const Index = () => {
                     <span className="text-sm font-normal text-gray-500">/mo</span>
                   </div>
                   <CardDescription>
-                    {plan.type === 'morning' && '6:00 AM - 2:00 PM'}
-                    {plan.type === 'evening' && '2:00 PM - 10:00 PM'}
-                    {plan.type === 'day' && '8:00 AM - 10:00 PM'}
+                    {plan.type === 'morning' && '8:00 AM - 3:00 PM'}
+                    {plan.type === 'evening' && '3:00 PM - 10:00 PM'}
+                    {plan.type === 'full-day' && '8:00 AM - 10:00 PM'}
                     {plan.type === 'night' && '10:00 PM - 6:00 AM'}
-                    {plan.type === '24/7' && '24/7 Unlimited Access'}
+                    {plan.type === '24-hours' && '8:00 AM - 8:00 AM (24 Hours)'}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -441,6 +441,27 @@ const Index = () => {
                 </CardContent>
               </Card>
             ))}
+          </div>
+          
+          <div className="mt-12 text-center">
+            <Card className="max-w-2xl mx-auto bg-blue-50 border-blue-200">
+              <CardContent className="pt-6">
+                <h3 className="text-lg font-semibold text-blue-900 mb-2">Full Shift Option</h3>
+                <p className="text-blue-800 text-sm mb-4">
+                  Full Shift = Morning + Evening shifts combined for maximum flexibility
+                </p>
+                <div className="grid md:grid-cols-2 gap-4 text-left">
+                  <div>
+                    <p className="font-medium text-blue-900">Full Day (₹1000)</p>
+                    <p className="text-sm text-blue-700">1 person uses the seat for the entire day</p>
+                  </div>
+                  <div>
+                    <p className="font-medium text-blue-900">Full Shift (Morning + Evening)</p>
+                    <p className="text-sm text-blue-700">2 people share: 1 in morning, 1 in evening</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </section>
@@ -607,7 +628,7 @@ const Index = () => {
               <h3 className="text-2xl font-bold text-gray-900 mb-6">Visit Us</h3>
               <div className="rounded-lg overflow-hidden shadow-lg">
                 <iframe
-                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d461.5859956443969!2d88.44406059169796!3d22.59020959542983!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a0275f0e945cff9%3A0x7b2e9ba4a9f8b1c3!2sThe%20Study%20Hub!5e0!3m2!1sen!2sin!4v1642582800000!5m2!1sen!2sin"
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3502.244303!2d77.3433!3d28.6139!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x390ce5a43173357b%3A0x37ffce30c87cc3ee!2sGanga%20Vihar%20Colony%2C%20Sector%2062%2C%20Noida%2C%20Uttar%20Pradesh%20201309!5e0!3m2!1sen!2sin!4v1642582800000!5m2!1sen!2sin"
                   width="100%"
                   height="300"
                   style={{ border: 0 }}
@@ -619,7 +640,7 @@ const Index = () => {
               </div>
               <div className="mt-4 text-center">
                 <a 
-                  href="https://maps.app.goo.gl/hJc7FlLyWEumnJcVU" 
+                  href="https://share.google/khlhKD1hrIFIMYFx4" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium"
@@ -663,11 +684,11 @@ const Index = () => {
             <div>
               <h4 className="font-semibold mb-4">Services</h4>
               <ul className="space-y-2 text-gray-400">
-                <li>Morning Shift Plans</li>
-                <li>Evening Shift Plans</li>
-                <li>Day Study Plans</li>
-                <li>Night Study Plans</li>
-                <li>24/7 Access</li>
+                <li>Half Day Morning (₹600)</li>
+                <li>Half Day Evening (₹600)</li>
+                <li>Full Day Plans (₹1000)</li>
+                <li>Night Shift (₹1200)</li>
+                <li>24 Hours Access (₹2000)</li>
               </ul>
             </div>
             
