@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +13,7 @@ import { useEffect } from "react";
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const { login, register, user, profile } = useAuth();
+  const { signIn, signUp, user, profile } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -36,29 +37,21 @@ const Auth = () => {
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
 
-    console.log('Login form submitted with email:', email);
+    console.log('Login attempt with email:', email);
 
     try {
-      const result = await login(email, password);
-      if (result.success) {
-        toast({
-          title: "Welcome back!",
-          description: "You have been successfully logged in.",
-        });
-        // Navigation will be handled by the useEffect above
-      } else {
-        console.error('Login failed:', result.error);
-        toast({
-          title: "Login failed",
-          description: result.error || "Invalid email or password. Please check your credentials and try again.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Login error:', error);
+      await signIn(email, password);
+      console.log('Login successful');
       toast({
-        title: "Error",
-        description: "Something went wrong. Please try again.",
+        title: "Welcome back!",
+        description: "You have been successfully logged in.",
+      });
+      // Navigation will be handled by the useEffect above
+    } catch (error: any) {
+      console.error('Login failed:', error);
+      toast({
+        title: "Login failed",
+        description: error.message || "Invalid email or password. Please check your credentials and try again.",
         variant: "destructive",
       });
     } finally {
@@ -97,31 +90,23 @@ const Auth = () => {
       return;
     }
 
-    console.log('Registration form submitted with email:', email);
+    console.log('Registration attempt with email:', email);
 
     try {
-      const result = await register(email, password, name);
-      if (result.success) {
-        toast({
-          title: "Registration successful!",
-          description: "Please check your email to verify your account before logging in.",
-        });
-        // Switch to login tab after successful registration
-        const loginTab = document.querySelector('[value="login"]') as HTMLElement;
-        loginTab?.click();
-      } else {
-        console.error('Registration failed:', result.error);
-        toast({
-          title: "Registration failed",
-          description: result.error || "Please check your information and try again.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Registration error:', error);
+      await signUp(email, password, name);
+      console.log('Registration successful');
       toast({
-        title: "Error",
-        description: "Something went wrong. Please try again.",
+        title: "Registration successful!",
+        description: "Please check your email to verify your account before logging in.",
+      });
+      // Switch to login tab after successful registration
+      const loginTab = document.querySelector('[value="login"]') as HTMLElement;
+      loginTab?.click();
+    } catch (error: any) {
+      console.error('Registration failed:', error);
+      toast({
+        title: "Registration failed",
+        description: error.message || "Please check your information and try again.",
         variant: "destructive",
       });
     } finally {
@@ -163,7 +148,7 @@ const Auth = () => {
                       name="email"
                       type="email"
                       placeholder="your@email.com"
-                      defaultValue="admin@studyhub.com"
+                      defaultValue="hossenbiddoth@gmail.com"
                       required
                     />
                   </div>
@@ -187,7 +172,7 @@ const Auth = () => {
                   <div className="text-sm text-gray-600 text-center space-y-1">
                     <div>Demo Accounts:</div>
                     <div>admin@studyhub.com / admin123 (Admin)</div>
-                    <div>hossenbiddoth@gmail.com (Admin)</div>
+                    <div>hossenbiddoth@gmail.com / admin123 (Admin)</div>
                   </div>
                 </form>
               </TabsContent>
