@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -162,8 +163,7 @@ const Auth = () => {
                       id="login-email"
                       name="email"
                       type="email"
-                      placeholder="your@email.com"
-                      defaultValue="admin@studyhub.com"
+                      placeholder="example@gmail.com"
                       required
                     />
                   </div>
@@ -173,7 +173,7 @@ const Auth = () => {
                       id="login-password"
                       name="password"
                       type="password"
-                      defaultValue="admin123"
+                      placeholder="Example123"
                       required
                     />
                   </div>
@@ -184,10 +184,8 @@ const Auth = () => {
                   >
                     {isLoading ? "Signing in..." : "Sign In"}
                   </Button>
-                  <div className="text-sm text-gray-600 text-center space-y-1">
-                    <div>Demo Accounts:</div>
-                    <div>admin@studyhub.com / admin123 (Admin)</div>
-                    <div>hossenbiddoth@gmail.com (Admin)</div>
+                  <div className="text-sm text-gray-600 text-center">
+                    <p>💡 Tip: Use a strong password with at least 6 characters</p>
                   </div>
                 </form>
               </TabsContent>
@@ -210,7 +208,7 @@ const Auth = () => {
                       id="register-email"
                       name="email"
                       type="email"
-                      placeholder="your@email.com"
+                      placeholder="example@gmail.com"
                       required
                     />
                   </div>
@@ -220,7 +218,7 @@ const Auth = () => {
                       id="register-password"
                       name="password"
                       type="password"
-                      placeholder="At least 6 characters"
+                      placeholder="Example123"
                       required
                     />
                   </div>
@@ -230,7 +228,7 @@ const Auth = () => {
                       id="register-confirm-password"
                       name="confirmPassword"
                       type="password"
-                      placeholder="Confirm your password"
+                      placeholder="Example123"
                       required
                     />
                   </div>
@@ -241,6 +239,9 @@ const Auth = () => {
                   >
                     {isLoading ? "Creating account..." : "Create Account"}
                   </Button>
+                  <div className="text-sm text-gray-600 text-center">
+                    <p>💡 Tip: Check your email after registration to verify your account</p>
+                  </div>
                 </form>
               </TabsContent>
             </Tabs>
