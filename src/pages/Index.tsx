@@ -16,11 +16,14 @@ const Index = () => {
               <span className="ml-2 text-xl font-bold text-gray-900">The Study Hub</span>
             </div>
             <div className="flex space-x-4">
+              <Link to="/auth">
+                <Button variant="outline">Sign In</Button>
+              </Link>
               <Link to="/dashboard">
-                <Button variant="outline">Dashboard</Button>
+                <Button>Dashboard</Button>
               </Link>
               <Link to="/admin">
-                <Button>Admin Panel</Button>
+                <Button variant="outline">Admin Panel</Button>
               </Link>
             </div>
           </div>
@@ -38,7 +41,7 @@ const Index = () => {
           </p>
           <div className="mt-5 max-w-md mx-auto sm:flex sm:justify-center md:mt-8">
             <div className="rounded-md shadow">
-              <Link to="/dashboard">
+              <Link to="/auth">
                 <Button size="lg" className="w-full">
                   Get Started
                 </Button>
