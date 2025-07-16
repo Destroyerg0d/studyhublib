@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -15,290 +16,459 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Calendar, Clock, Edit, Plus, Sun, Moon, Settings } from "lucide-react";
+import { Calendar, Clock, Edit, Plus, Sun, Moon, ChevronLeft, ChevronRight, Save } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+
+interface TimetableSlot {
+  id?: string;
+  name: string;
+  time: string;
+  end_time: string;
+  type: string;
+  description: string;
+  active: boolean;
+  plan_type: string;
+  date: string;
+}
 
 const TimetableManagement = () => {
+  const [timeSlots, setTimeSlots] = useState<TimetableSlot[]>([]);
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const [timeSlots, setTimeSlots] = useState([
-    { id: 1, name: "Morning Start", time: "08:00", type: "day", active: true, description: "Library opens for day session" },
-    { id: 2, name: "Peak Hours", time: "09:00", type: "day", active: true, description: "Peak study hours begin" },
-    { id: 3, name: "Lunch Break", time: "12:00", type: "day", active: true, description: "Lunch break period" },
-    { id: 4, name: "Afternoon Session", time: "13:00", type: "day", active: true, description: "Post-lunch session resumes" },
-    { id: 5, name: "Evening Peak", time: "18:00", type: "day", active: true, description: "Evening peak hours" },
-    { id: 6, name: "Day Close", time: "22:00", type: "day", active: true, description: "Day session ends" },
-    { id: 7, name: "Night Start", time: "22:00", type: "night", active: true, description: "Night session begins" },
-    { id: 8, name: "Quiet Hours", time: "00:00", type: "night", active: true, description: "Deep focus hours" },
-    { id: 9, name: "Deep Study", time: "03:00", type: "night", active: true, description: "Minimal activity period" },
-    { id: 10, name: "Night Close", time: "06:00", type: "night", active: true, description: "Night session ends" },
-  ]);
+  const planTypes = ['full_shift', 'morning', 'evening', 'full_day'];
+  const slotTypes = ['opening', 'closing', 'break', 'study', 'maintenance'];
 
-  const [holidays, setHolidays] = useState([
-    { id: 1, date: "2024-12-25", name: "Christmas Day", type: "closed", recurring: true },
-    { id: 2, date: "2025-01-01", name: "New Year's Day", type: "half-day", recurring: true },
-    { id: 3, date: "2025-01-26", name: "Republic Day", type: "closed", recurring: true },
-    { id: 4, date: "2025-03-08", name: "Holi", type: "closed", recurring: false },
-  ]);
+  const fetchTimetableData = async () => {
+    try {
+      const weekStart = new Date(selectedDate);
+      weekStart.setDate(selectedDate.getDate() - selectedDate.getDay());
+      
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
 
-  const handleTimeSlotUpdate = (id: number, field: string, value: any) => {
-    setTimeSlots(prev => prev.map(slot => 
-      slot.id === id ? { ...slot, [field]: value } : slot
-    ));
-    toast({
-      title: "Time slot updated",
-      description: "The schedule has been updated successfully.",
+      const { data, error } = await supabase
+        .from('timetable_slots')
+        .select('*')
+        .gte('date', weekStart.toISOString().split('T')[0])
+        .lte('date', weekEnd.toISOString().split('T')[0])
+        .order('date')
+        .order('time');
+
+      if (error) throw error;
+
+      setTimeSlots(data || []);
+    } catch (error) {
+      console.error('Error fetching timetable data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load timetable data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTimetableData();
+  }, [selectedDate]);
+
+  const generateDefaultSchedule = () => {
+    const weekStart = new Date(selectedDate);
+    weekStart.setDate(selectedDate.getDate() - selectedDate.getDay());
+    
+    const defaultSlots: TimetableSlot[] = [];
+    
+    for (let day = 0; day < 7; day++) {
+      const currentDate = new Date(weekStart);
+      currentDate.setDate(weekStart.getDate() + day);
+      const dateStr = currentDate.toISOString().split('T')[0];
+      
+      // Skip if already has slots for this date
+      if (timeSlots.some(slot => slot.date === dateStr)) continue;
+      
+      // Default schedule for each plan type
+      const daySlots = [
+        // Full Shift Plan (24 hours)
+        { name: "Full Shift Opening", time: "00:00", end_time: "01:00", type: "opening", description: "24-hour access begins", active: true, plan_type: "full_shift", date: dateStr },
+        { name: "Night Study", time: "01:00", end_time: "06:00", type: "study", description: "Deep focus hours", active: true, plan_type: "full_shift", date: dateStr },
+        { name: "Morning Transition", time: "06:00", end_time: "08:00", type: "break", description: "Shift transition", active: true, plan_type: "full_shift", date: dateStr },
+        
+        // Morning Plan (6 AM - 2 PM)
+        { name: "Morning Opening", time: "06:00", end_time: "06:30", type: "opening", description: "Morning session begins", active: true, plan_type: "morning", date: dateStr },
+        { name: "Morning Study 1", time: "06:30", end_time: "10:00", type: "study", description: "First study block", active: true, plan_type: "morning", date: dateStr },
+        { name: "Morning Break", time: "10:00", end_time: "10:30", type: "break", description: "Tea break", active: true, plan_type: "morning", date: dateStr },
+        { name: "Morning Study 2", time: "10:30", end_time: "14:00", type: "study", description: "Second study block", active: true, plan_type: "morning", date: dateStr },
+        
+        // Evening Plan (2 PM - 10 PM)
+        { name: "Evening Opening", time: "14:00", end_time: "14:30", type: "opening", description: "Evening session begins", active: true, plan_type: "evening", date: dateStr },
+        { name: "Evening Study 1", time: "14:30", end_time: "17:30", type: "study", description: "First evening block", active: true, plan_type: "evening", date: dateStr },
+        { name: "Evening Break", time: "17:30", end_time: "18:00", type: "break", description: "Dinner break", active: true, plan_type: "evening", date: dateStr },
+        { name: "Evening Study 2", time: "18:00", end_time: "22:00", type: "study", description: "Second evening block", active: true, plan_type: "evening", date: dateStr },
+        
+        // Full Day Plan (6 AM - 10 PM)
+        { name: "Full Day Opening", time: "06:00", end_time: "06:30", type: "opening", description: "Full day access begins", active: true, plan_type: "full_day", date: dateStr },
+        { name: "Full Day Study 1", time: "06:30", end_time: "12:00", type: "study", description: "Morning study session", active: true, plan_type: "full_day", date: dateStr },
+        { name: "Lunch Break", time: "12:00", end_time: "13:00", type: "break", description: "Lunch break", active: true, plan_type: "full_day", date: dateStr },
+        { name: "Full Day Study 2", time: "13:00", end_time: "18:00", type: "study", description: "Afternoon study session", active: true, plan_type: "full_day", date: dateStr },
+        { name: "Evening Break", time: "18:00", end_time: "18:30", type: "break", description: "Evening break", active: true, plan_type: "full_day", date: dateStr },
+        { name: "Full Day Study 3", time: "18:30", end_time: "22:00", type: "study", description: "Evening study session", active: true, plan_type: "full_day", date: dateStr },
+        { name: "Daily Closing", time: "22:00", end_time: "23:59", type: "closing", description: "Day session ends", active: true, plan_type: "full_day", date: dateStr },
+      ];
+      
+      defaultSlots.push(...daySlots);
+    }
+    
+    return defaultSlots;
+  };
+
+  const handleSaveSchedule = async () => {
+    try {
+      // Delete existing slots for the current week
+      const weekStart = new Date(selectedDate);
+      weekStart.setDate(selectedDate.getDate() - selectedDate.getDay());
+      
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+
+      await supabase
+        .from('timetable_slots')
+        .delete()
+        .gte('date', weekStart.toISOString().split('T')[0])
+        .lte('date', weekEnd.toISOString().split('T')[0]);
+
+      // Insert updated slots
+      const slotsToInsert = timeSlots.map(({ id, ...slot }) => slot);
+      
+      const { error } = await supabase
+        .from('timetable_slots')
+        .insert(slotsToInsert);
+
+      if (error) throw error;
+
+      toast({
+        title: "Schedule Saved",
+        description: "Timetable has been updated successfully",
+      });
+
+      setIsEditing(false);
+      fetchTimetableData();
+    } catch (error) {
+      console.error('Error saving schedule:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save schedule",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSlotUpdate = (index: number, field: string, value: any) => {
+    const updatedSlots = [...timeSlots];
+    updatedSlots[index] = { ...updatedSlots[index], [field]: value };
+    setTimeSlots(updatedSlots);
+  };
+
+  const addNewSlot = (date: string) => {
+    const newSlot: TimetableSlot = {
+      name: "New Slot",
+      time: "09:00",
+      end_time: "10:00",
+      type: "study",
+      description: "",
+      active: true,
+      plan_type: "morning",
+      date: date
+    };
+    setTimeSlots([...timeSlots, newSlot]);
+  };
+
+  const removeSlot = (index: number) => {
+    const updatedSlots = timeSlots.filter((_, i) => i !== index);
+    setTimeSlots(updatedSlots);
+  };
+
+  const getWeekDates = () => {
+    const weekStart = new Date(selectedDate);
+    weekStart.setDate(selectedDate.getDate() - selectedDate.getDay());
+    
+    const dates = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(weekStart);
+      date.setDate(weekStart.getDate() + i);
+      dates.push(date);
+    }
+    return dates;
+  };
+
+  const navigateWeek = (direction: 'prev' | 'next') => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(selectedDate.getDate() + (direction === 'next' ? 7 : -7));
+    setSelectedDate(newDate);
+  };
+
+  const getSlotsForDate = (date: Date) => {
+    const dateStr = date.toISOString().split('T')[0];
+    return timeSlots
+      .map((slot, index) => ({ ...slot, originalIndex: index }))
+      .filter(slot => slot.date === dateStr);
+  };
+
+  const formatTime = (time: string) => {
+    return new Date(`2000-01-01T${time}`).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
     });
   };
 
-  const handleAddHoliday = () => {
-    const newHoliday = {
-      id: holidays.length + 1,
-      date: "",
-      name: "",
-      type: "closed",
-      recurring: false,
-    };
-    setHolidays(prev => [...prev, newHoliday]);
+  const getPlanColor = (planType: string) => {
+    switch (planType.toLowerCase()) {
+      case 'full_shift': return 'bg-orange-100 text-orange-800';
+      case 'morning': return 'bg-purple-100 text-purple-800';
+      case 'evening': return 'bg-green-100 text-green-800';
+      case 'full_day': return 'bg-blue-100 text-blue-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
   };
 
-  const daySlots = timeSlots.filter(slot => slot.type === "day");
-  const nightSlots = timeSlots.filter(slot => slot.type === "night");
+  const weekDates = getWeekDates();
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-64">Loading...</div>;
+  }
 
   return (
     <div className="space-y-6">
-      {/* Current Status */}
+      {/* Header */}
       <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <Clock className="h-6 w-6 text-blue-600 mr-3" />
               <div>
-                <CardTitle className="text-blue-900">Library Schedule Management</CardTitle>
+                <CardTitle className="text-blue-900">Weekly Timetable Management</CardTitle>
                 <CardDescription className="text-blue-700">
-                  Configure operating hours and manage special schedules
+                  Configure operating hours for each day of the week
                 </CardDescription>
               </div>
             </div>
-            <Badge className="bg-green-500 text-white">Currently Open</Badge>
+            <div className="flex items-center space-x-2">
+              {isEditing && (
+                <Button onClick={handleSaveSchedule} className="bg-green-600 hover:bg-green-700">
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Changes
+                </Button>
+              )}
+              <Button
+                variant={isEditing ? "outline" : "default"}
+                onClick={() => setIsEditing(!isEditing)}
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                {isEditing ? "Cancel" : "Edit Schedule"}
+              </Button>
+            </div>
           </div>
         </CardHeader>
       </Card>
 
-      {/* Time Slots Management */}
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Day Time Slots */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <Sun className="h-5 w-5 text-yellow-600 mr-2" />
-                <CardTitle>Day Time Schedule</CardTitle>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setIsEditing(!isEditing)}
-              >
-                <Edit className="h-4 w-4 mr-2" />
-                {isEditing ? "Save" : "Edit"}
-              </Button>
-            </div>
-            <CardDescription>8:00 AM - 10:00 PM</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {daySlots.map((slot) => (
-                <div key={slot.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex-1">
-                    {isEditing ? (
-                      <div className="space-y-2">
-                        <Input
-                          value={slot.name}
-                          onChange={(e) => handleTimeSlotUpdate(slot.id, 'name', e.target.value)}
-                          className="text-sm"
-                        />
-                        <Input
-                          type="time"
-                          value={slot.time}
-                          onChange={(e) => handleTimeSlotUpdate(slot.id, 'time', e.target.value)}
-                          className="text-sm"
-                        />
-                      </div>
-                    ) : (
-                      <>
-                        <p className="font-medium">{slot.time}</p>
-                        <p className="text-sm text-gray-600">{slot.name}</p>
-                        <p className="text-xs text-gray-500">{slot.description}</p>
-                      </>
-                    )}
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      checked={slot.active}
-                      onCheckedChange={(checked) => handleTimeSlotUpdate(slot.id, 'active', checked)}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Night Time Slots */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <Moon className="h-5 w-5 text-blue-600 mr-2" />
-                <CardTitle>Night Time Schedule</CardTitle>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setIsEditing(!isEditing)}
-              >
-                <Edit className="h-4 w-4 mr-2" />
-                {isEditing ? "Save" : "Edit"}
-              </Button>
-            </div>
-            <CardDescription>10:00 PM - 6:00 AM</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {nightSlots.map((slot) => (
-                <div key={slot.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex-1">
-                    {isEditing ? (
-                      <div className="space-y-2">
-                        <Input
-                          value={slot.name}
-                          onChange={(e) => handleTimeSlotUpdate(slot.id, 'name', e.target.value)}
-                          className="text-sm"
-                        />
-                        <Input
-                          type="time"
-                          value={slot.time}
-                          onChange={(e) => handleTimeSlotUpdate(slot.id, 'time', e.target.value)}
-                          className="text-sm"
-                        />
-                      </div>
-                    ) : (
-                      <>
-                        <p className="font-medium">{slot.time}</p>
-                        <p className="text-sm text-gray-600">{slot.name}</p>
-                        <p className="text-xs text-gray-500">{slot.description}</p>
-                      </>
-                    )}
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      checked={slot.active}
-                      onCheckedChange={(checked) => handleTimeSlotUpdate(slot.id, 'active', checked)}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Holidays Management */}
+      {/* Week Navigation */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <Calendar className="h-5 w-5 text-red-600 mr-2" />
-              <CardTitle>Holidays & Special Days</CardTitle>
+            <div className="flex items-center space-x-2">
+              <Button variant="outline" size="sm" onClick={() => navigateWeek('prev')}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-lg font-semibold">
+                Week of {weekDates[0].toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} - 
+                {weekDates[6].toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+              </span>
+              <Button variant="outline" size="sm" onClick={() => navigateWeek('next')}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Holiday
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add New Holiday</DialogTitle>
-                  <DialogDescription>
-                    Configure a new holiday or special day schedule
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="holiday-name">Holiday Name</Label>
-                    <Input id="holiday-name" placeholder="e.g., Independence Day" />
-                  </div>
-                  <div>
-                    <Label htmlFor="holiday-date">Date</Label>
-                    <Input id="holiday-date" type="date" />
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch id="recurring" />
-                    <Label htmlFor="recurring">Recurring annually</Label>
-                  </div>
-                  <Button onClick={handleAddHoliday} className="w-full">
-                    Add Holiday
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+            {isEditing && (
+              <Button
+                onClick={() => {
+                  const defaultSlots = generateDefaultSchedule();
+                  setTimeSlots([...timeSlots, ...defaultSlots]);
+                }}
+                variant="outline"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Generate Default Schedule
+              </Button>
+            )}
           </div>
-          <CardDescription>Manage library closures and special timings</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {holidays.map((holiday) => (
-              <div key={holiday.id} className="flex items-center justify-between p-3 border rounded-lg">
-                <div>
-                  <p className="font-medium">{holiday.name}</p>
-                  <p className="text-sm text-gray-600">
-                    {new Date(holiday.date).toLocaleDateString()}
-                    {holiday.recurring && " (Annual)"}
-                  </p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Badge variant={holiday.type === 'closed' ? 'destructive' : 'secondary'}>
-                    {holiday.type === 'closed' ? 'Closed' : 'Half Day'}
-                  </Badge>
-                  <Button size="sm" variant="outline">
-                    <Edit className="h-3 w-3" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {weekDates.map((date, dayIndex) => {
+              const daySlots = getSlotsForDate(date);
+              const isToday = date.toDateString() === new Date().toDateString();
+              
+              return (
+                <Card key={dayIndex} className={isToday ? 'ring-2 ring-yellow-400' : ''}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">
+                        {date.toLocaleDateString('en-US', { weekday: 'long' })}
+                      </CardTitle>
+                      <span className="text-sm text-gray-600">
+                        {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </span>
+                    </div>
+                    {isEditing && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => addNewSlot(date.toISOString().split('T')[0])}
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        Add Slot
+                      </Button>
+                    )}
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {daySlots.length === 0 ? (
+                      <p className="text-gray-500 text-sm">No schedule for this day</p>
+                    ) : (
+                      daySlots.map((slot, slotIndex) => (
+                        <div key={slotIndex} className="p-3 border rounded-lg space-y-2">
+                          {isEditing ? (
+                            <div className="space-y-2">
+                              <Input
+                                value={slot.name}
+                                onChange={(e) => handleSlotUpdate(slot.originalIndex!, 'name', e.target.value)}
+                                placeholder="Slot name"
+                                className="text-sm"
+                              />
+                              <div className="grid grid-cols-2 gap-2">
+                                <Input
+                                  type="time"
+                                  value={slot.time}
+                                  onChange={(e) => handleSlotUpdate(slot.originalIndex!, 'time', e.target.value)}
+                                  className="text-sm"
+                                />
+                                <Input
+                                  type="time"
+                                  value={slot.end_time}
+                                  onChange={(e) => handleSlotUpdate(slot.originalIndex!, 'end_time', e.target.value)}
+                                  className="text-sm"
+                                />
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <Select
+                                  value={slot.type}
+                                  onValueChange={(value) => handleSlotUpdate(slot.originalIndex!, 'type', value)}
+                                >
+                                  <SelectTrigger className="text-sm">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {slotTypes.map(type => (
+                                      <SelectItem key={type} value={type}>
+                                        {type.charAt(0).toUpperCase() + type.slice(1)}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <Select
+                                  value={slot.plan_type}
+                                  onValueChange={(value) => handleSlotUpdate(slot.originalIndex!, 'plan_type', value)}
+                                >
+                                  <SelectTrigger className="text-sm">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {planTypes.map(plan => (
+                                      <SelectItem key={plan} value={plan}>
+                                        {plan.replace('_', ' ').charAt(0).toUpperCase() + plan.replace('_', ' ').slice(1)}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <Input
+                                value={slot.description}
+                                onChange={(e) => handleSlotUpdate(slot.originalIndex!, 'description', e.target.value)}
+                                placeholder="Description"
+                                className="text-sm"
+                              />
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-2">
+                                  <Switch
+                                    checked={slot.active}
+                                    onCheckedChange={(checked) => handleSlotUpdate(slot.originalIndex!, 'active', checked)}
+                                  />
+                                  <Label className="text-sm">Active</Label>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => removeSlot(slot.originalIndex!)}
+                                >
+                                  Remove
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              <div className="flex items-center justify-between mb-2">
+                                <h4 className="font-medium text-sm">{slot.name}</h4>
+                                {!slot.active && <Badge variant="secondary">Inactive</Badge>}
+                              </div>
+                              <div className="text-sm text-gray-600 mb-2">
+                                {formatTime(slot.time)} - {formatTime(slot.end_time)}
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <Badge className={getPlanColor(slot.plan_type)}>
+                                  {slot.plan_type.replace('_', ' ')}
+                                </Badge>
+                                <Badge variant="outline">{slot.type}</Badge>
+                              </div>
+                              {slot.description && (
+                                <p className="text-xs text-gray-500 mt-2">{slot.description}</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </CardContent>
       </Card>
 
-      {/* Schedule Statistics */}
+      {/* Plan Types Info */}
       <Card>
         <CardHeader>
-          <CardTitle>Schedule Analytics</CardTitle>
+          <CardTitle>Plan Types Information</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid md:grid-cols-4 gap-6">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">14</div>
-              <div className="text-sm text-gray-600">Operating Hours/Day</div>
-              <div className="text-xs text-green-600">Day + Night sessions</div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+              <h4 className="font-semibold text-orange-800 mb-2">Full Shift</h4>
+              <p className="text-sm text-orange-700">24-hour access for round-the-clock study</p>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">24/7</div>
-              <div className="text-sm text-gray-600">Availability</div>
-              <div className="text-xs text-blue-600">Round-the-clock access</div>
+            <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+              <h4 className="font-semibold text-purple-800 mb-2">Morning</h4>
+              <p className="text-sm text-purple-700">6:00 AM - 2:00 PM study session</p>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">{holidays.length}</div>
-              <div className="text-sm text-gray-600">Scheduled Holidays</div>
-              <div className="text-xs text-gray-600">This year</div>
+            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+              <h4 className="font-semibold text-green-800 mb-2">Evening</h4>
+              <p className="text-sm text-green-700">2:00 PM - 10:00 PM study session</p>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-orange-600">95%</div>
-              <div className="text-sm text-gray-600">Uptime</div>
-              <div className="text-xs text-green-600">This month</div>
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h4 className="font-semibold text-blue-800 mb-2">Full Day</h4>
+              <p className="text-sm text-blue-700">6:00 AM - 10:00 PM comprehensive access</p>
             </div>
           </div>
         </CardContent>
