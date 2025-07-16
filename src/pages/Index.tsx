@@ -310,10 +310,10 @@ const Index = () => {
             <Card className="text-center hover:shadow-lg transition-shadow">
               <CardHeader>
                 <Coffee className="h-12 w-12 text-red-600 mx-auto mb-4" />
-                <CardTitle>Refreshment Area</CardTitle>
+                <CardTitle>Seat-Side Ordering</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-600">Take breaks in our comfortable refreshment area with snacks and beverages.</p>
+                <p className="text-gray-600">Order refreshments online with your seat number and get delivery directly to your seat.</p>
               </CardContent>
             </Card>
 
@@ -330,10 +330,10 @@ const Index = () => {
             <Card className="text-center hover:shadow-lg transition-shadow">
               <CardHeader>
                 <BookOpen className="h-12 w-12 text-red-600 mx-auto mb-4" />
-                <CardTitle>Study Resources</CardTitle>
+                <CardTitle>Self-Study Environment</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-600">Access to books, journals, and digital resources for comprehensive learning.</p>
+                <p className="text-gray-600">Peaceful and focused environment where students come and study on their own with personal materials.</p>
               </CardContent>
             </Card>
           </div>
