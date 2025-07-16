@@ -8,11 +8,16 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children, adminOnly = false }: ProtectedRouteProps) => {
-  const { user, profile, isLoading } = useAuth();
+  const { user, profile, loading } = useAuth();
 
-  console.log('ProtectedRoute - user:', user?.email, 'profile:', profile, 'adminOnly:', adminOnly, 'isLoading:', isLoading);
+  console.log('ProtectedRoute check:', { 
+    user: user?.email, 
+    profile: profile?.role, 
+    adminOnly, 
+    loading 
+  });
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>

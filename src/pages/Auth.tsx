@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,66 +9,47 @@ import { BookOpen, ArrowLeft } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { useEffect } from "react";
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const { login, register, user, profile, loading } = useAuth();
+  const { signIn, signUp, user, profile, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Redirect if already logged in
+  // Redirect authenticated users
   useEffect(() => {
-    console.log('Auth page - User:', user?.email, 'Profile:', profile?.role, 'Loading:', loading);
-    
     if (!loading && user && profile) {
-      console.log('User is authenticated, redirecting based on role:', profile.role);
-      
-      // Force redirect with replace to prevent back button issues
+      console.log('User authenticated, redirecting...', { user: user.email, role: profile.role });
       const redirectPath = profile.role === 'admin' ? '/admin' : '/dashboard';
-      console.log('Redirecting to:', redirectPath);
-      
-      // Use setTimeout to ensure state has fully updated
-      setTimeout(() => {
-        navigate(redirectPath, { replace: true });
-      }, 100);
+      navigate(redirectPath, { replace: true });
     }
   }, [user, profile, loading, navigate]);
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (isLoading) return;
-    
     setIsLoading(true);
     
     const formData = new FormData(e.currentTarget);
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
 
-    console.log('Login attempt with email:', email);
-
     try {
-      const result = await login(email, password);
-      console.log('Login result:', result);
+      const result = await signIn(email, password);
       
       if (result.success) {
         toast({
-          title: "Welcome back!",
-          description: "You have been successfully logged in.",
+          title: "Login successful!",
+          description: "Welcome back to The Study Hub.",
         });
-        
-        // The redirect will be handled by the useEffect hook
-        console.log('Login successful, waiting for profile to load...');
+        // Navigation will be handled by useEffect
       } else {
-        console.error('Login failed:', result.error);
         toast({
           title: "Login failed",
-          description: result.error || "Invalid email or password. Please check your credentials and try again.",
+          description: result.error || "Invalid credentials",
           variant: "destructive",
         });
       }
     } catch (error) {
-      console.error('Login error:', error);
       toast({
         title: "Error",
         description: "Something went wrong. Please try again.",
@@ -81,8 +62,6 @@ const Auth = () => {
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (isLoading) return;
-    
     setIsLoading(true);
     
     const formData = new FormData(e.currentTarget);
@@ -91,7 +70,6 @@ const Auth = () => {
     const password = formData.get('password') as string;
     const confirmPassword = formData.get('confirmPassword') as string;
 
-    // Basic validation
     if (password !== confirmPassword) {
       toast({
         title: "Password mismatch",
@@ -112,28 +90,24 @@ const Auth = () => {
       return;
     }
 
-    console.log('Registration attempt with email:', email);
-
     try {
-      const result = await register(email, password, name);
+      const result = await signUp(email, password, name);
       if (result.success) {
         toast({
           title: "Registration successful!",
-          description: "Please check your email to verify your account before logging in.",
+          description: "Please check your email to verify your account.",
         });
-        // Switch to login tab after successful registration
+        // Switch to login tab
         const loginTab = document.querySelector('[value="login"]') as HTMLElement;
         loginTab?.click();
       } else {
-        console.error('Registration failed:', result.error);
         toast({
           title: "Registration failed",
-          description: result.error || "Please check your information and try again.",
+          description: result.error || "Please try again.",
           variant: "destructive",
         });
       }
     } catch (error) {
-      console.error('Registration error:', error);
       toast({
         title: "Error",
         description: "Something went wrong. Please try again.",
@@ -144,7 +118,7 @@ const Auth = () => {
     }
   };
 
-  // Show loading if we're checking auth state
+  // Show loading while checking auth state
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
