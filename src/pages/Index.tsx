@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,7 +17,11 @@ import {
   MapPin,
   CheckCircle,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ShoppingCart,
+  Utensils,
+  Book,
+  GraduationCap
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -309,11 +312,11 @@ const Index = () => {
 
             <Card className="text-center hover:shadow-lg transition-shadow">
               <CardHeader>
-                <Coffee className="h-12 w-12 text-red-600 mx-auto mb-4" />
+                <Utensils className="h-12 w-12 text-red-600 mx-auto mb-4" />
                 <CardTitle>Refreshment Area</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-600">Take breaks in our comfortable refreshment area with snacks and beverages.</p>
+                <p className="text-gray-600">Order refreshments online with your seat number and get delivery directly to your seat.</p>
               </CardContent>
             </Card>
 
@@ -329,11 +332,209 @@ const Index = () => {
 
             <Card className="text-center hover:shadow-lg transition-shadow">
               <CardHeader>
-                <BookOpen className="h-12 w-12 text-red-600 mx-auto mb-4" />
+                <GraduationCap className="h-12 w-12 text-red-600 mx-auto mb-4" />
                 <CardTitle>Study Resources</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-600">Access to books, journals, and digital resources for comprehensive learning.</p>
+                <p className="text-gray-600">Students bring their own study materials and focus on independent learning in our peaceful environment.</p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* New Refreshment Area Section */}
+      <section className="py-20 bg-gradient-to-br from-orange-50 to-red-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">Online Refreshment Ordering</h2>
+            <p className="text-xl text-gray-600">Order food and beverages online and get them delivered directly to your seat</p>
+          </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            <Card className="shadow-xl">
+              <CardHeader>
+                <CardTitle className="flex items-center text-2xl">
+                  <ShoppingCart className="h-8 w-8 mr-3 text-orange-600" />
+                  How It Works
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="flex items-start space-x-4">
+                    <div className="bg-orange-100 rounded-full p-2 flex-shrink-0">
+                      <span className="text-orange-600 font-bold text-lg">1</span>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-lg">Browse Menu Online</h4>
+                      <p className="text-gray-600">Access our digital menu from your dashboard or mobile app</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-4">
+                    <div className="bg-orange-100 rounded-full p-2 flex-shrink-0">
+                      <span className="text-orange-600 font-bold text-lg">2</span>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-lg">Enter Your Seat Number</h4>
+                      <p className="text-gray-600">Specify your exact seat location for accurate delivery</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-4">
+                    <div className="bg-orange-100 rounded-full p-2 flex-shrink-0">
+                      <span className="text-orange-600 font-bold text-lg">3</span>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-lg">Place Your Order</h4>
+                      <p className="text-gray-600">Select items, customize your order, and make payment online</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-4">
+                    <div className="bg-orange-100 rounded-full p-2 flex-shrink-0">
+                      <span className="text-orange-600 font-bold text-lg">4</span>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-lg">Enjoy Seat Delivery</h4>
+                      <p className="text-gray-600">Receive your order directly at your seat without interrupting your study</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-xl">
+              <CardHeader>
+                <CardTitle className="flex items-center text-2xl">
+                  <Coffee className="h-8 w-8 mr-3 text-red-600" />
+                  Available Items
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="font-semibold text-orange-700 mb-3">🥤 Beverages</h4>
+                    <ul className="space-y-2 text-sm text-gray-600">
+                      <li>• Fresh Coffee & Tea</li>
+                      <li>• Cold Drinks & Juices</li>
+                      <li>• Energy Drinks</li>
+                      <li>• Fresh Lime Water</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-orange-700 mb-3">🍽️ Snacks & Meals</h4>
+                    <ul className="space-y-2 text-sm text-gray-600">
+                      <li>• Sandwiches & Wraps</li>
+                      <li>• Light Meals & Combos</li>
+                      <li>• Biscuits & Namkeen</li>
+                      <li>• Fresh Fruits</li>
+                    </ul>
+                  </div>
+                </div>
+                <div className="mt-6 p-4 bg-green-50 rounded-lg">
+                  <div className="flex items-center">
+                    <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
+                    <span className="text-green-800 font-medium">Student-friendly pricing</span>
+                  </div>
+                  <div className="flex items-center mt-1">
+                    <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
+                    <span className="text-green-800 font-medium">Quick 15-minute delivery</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="text-center mt-12">
+            <Link to="/auth">
+              <Button size="lg" className="bg-orange-600 hover:bg-orange-700 text-white px-8 py-4">
+                Start Ordering Now
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* New Study Resources Section */}
+      <section className="py-20 bg-gradient-to-br from-blue-50 to-indigo-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">Independent Study Environment</h2>
+            <p className="text-xl text-gray-600">Focused learning space where students bring their own materials and study independently</p>
+          </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <Card className="text-center shadow-lg">
+              <CardHeader>
+                <Book className="h-16 w-16 text-blue-600 mx-auto mb-4" />
+                <CardTitle className="text-xl">Bring Your Own Materials</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600">Students come prepared with their own books, notes, laptops, and study materials for focused independent learning.</p>
+              </CardContent>
+            </Card>
+
+            <Card className="text-center shadow-lg">
+              <CardHeader>
+                <Users className="h-16 w-16 text-blue-600 mx-auto mb-4" />
+                <CardTitle className="text-xl">Self-Directed Learning</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600">Our environment supports independent study where students can focus on their own curriculum and learning goals.</p>
+              </CardContent>
+            </Card>
+
+            <Card className="text-center shadow-lg">
+              <CardHeader>
+                <Shield className="h-16 w-16 text-blue-600 mx-auto mb-4" />
+                <CardTitle className="text-xl">Distraction-Free Zone</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600">Quiet, peaceful environment designed to minimize distractions and maximize concentration for serious students.</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="mt-16">
+            <Card className="max-w-4xl mx-auto shadow-xl">
+              <CardHeader className="text-center">
+                <CardTitle className="text-2xl">What Students Typically Bring</CardTitle>
+                <CardDescription>Common study materials students use in our facility</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div>
+                    <h4 className="font-semibold text-blue-700 mb-4 flex items-center">
+                      <BookOpen className="h-5 w-5 mr-2" />
+                      Study Materials
+                    </h4>
+                    <ul className="space-y-2 text-gray-600">
+                      <li>• Textbooks and reference books</li>
+                      <li>• Personal notebooks and journals</li>
+                      <li>• Printed notes and handouts</li>
+                      <li>• Practice test papers</li>
+                      <li>• Highlighters and stationery</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-blue-700 mb-4 flex items-center">
+                      <Users className="h-5 w-5 mr-2" />
+                      Digital Resources
+                    </h4>
+                    <ul className="space-y-2 text-gray-600">
+                      <li>• Personal laptops and tablets</li>
+                      <li>• Online course materials</li>
+                      <li>• Digital study apps</li>
+                      <li>• E-books and PDFs</li>
+                      <li>• Noise-cancelling headphones</li>
+                    </ul>
+                  </div>
+                </div>
+                <div className="mt-8 p-6 bg-blue-50 rounded-lg">
+                  <h4 className="font-semibold text-blue-900 mb-3">Why Independent Study Works</h4>
+                  <p className="text-blue-800">
+                    Our facility provides the perfect environment for self-directed learning. Students have the freedom to study at their own pace, 
+                    use their preferred materials, and follow their personal study schedules while being surrounded by like-minded, focused learners.
+                  </p>
+                </div>
               </CardContent>
             </Card>
           </div>
