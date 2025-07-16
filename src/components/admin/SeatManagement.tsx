@@ -49,20 +49,52 @@ const SeatManagement = () => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  // First floor layout - arranged from top to bottom as shown in image 1
+  // First floor layout - arranged as specified
   const firstFloorLayout = [
-    { row: 'Corner', seats: [[2], [1]], label: 'Corner Seats' },
-    { row: 'A', seats: [[3], [4], [5], [6], [7], [8]], label: 'Row A' },
-    { row: 'B', seats: [[13, 12, 11, 10, 9]], label: 'Row B' },
-    { row: 'C', seats: [[19, 18, 17, 16, 15, 14]], label: 'Row C' }
+    { 
+      row: 'Corner', 
+      seats: [1, 2], 
+      label: 'Corner Seats (Top Left)' 
+    },
+    { 
+      row: 'A', 
+      seats: [3, 4, 5, 6, 7, 8], 
+      label: 'Column A' 
+    },
+    { 
+      row: 'B', 
+      seats: [13, 12, 11, 10, 9], 
+      label: 'Column B' 
+    },
+    { 
+      row: 'C', 
+      seats: [19, 18, 17, 16, 15, 14], 
+      label: 'Column C' 
+    }
   ];
 
-  // Second floor layout - arranged from top to bottom as shown in image 2
+  // Second floor layout - arranged as specified
   const secondFloorLayout = [
-    { row: 'D', seats: [[20], [21], [22], [23], [24], [25]], label: 'Row D' },
-    { row: 'E', seats: [[30, 29, 28, 27, 26]], label: 'Row E' },
-    { row: 'F', seats: [[35, 34, 33, 32, 31]], label: 'Row F' },
-    { row: 'G', seats: [[40, 39, 38, 37, 36]], label: 'Row G' }
+    { 
+      row: 'D', 
+      seats: [20, 21, 22, 23, 24, 25], 
+      label: 'Column D' 
+    },
+    { 
+      row: 'E', 
+      seats: [30, 29, 28, 27, 26], 
+      label: 'Column E' 
+    },
+    { 
+      row: 'F', 
+      seats: [35, 34, 33, 32, 31], 
+      label: 'Column F' 
+    },
+    { 
+      row: 'G', 
+      seats: [40, 39, 38, 37, 36], 
+      label: 'Column G' 
+    }
   ];
 
   const fetchData = async () => {
@@ -358,7 +390,7 @@ const SeatManagement = () => {
             First Floor Layout (19 Seats)
           </CardTitle>
           <CardDescription>
-            Ground floor with corner seats and 3 rows
+            Corner seats at top left, followed by Columns A, B, C with door between B and other areas
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -386,27 +418,23 @@ const SeatManagement = () => {
             </div>
           </div>
 
-          {/* First Floor Grid - Top to Bottom Layout */}
+          {/* First Floor Grid */}
           <div className="space-y-6">
-            {firstFloorLayout.map((row) => (
-              <div key={row.row} className="space-y-2">
-                <h3 className="font-medium text-gray-700">{row.label}</h3>
-                <div className="flex flex-col gap-2 relative">
-                  {row.seats.map((seatRow, rowIndex) => (
-                    <div key={rowIndex} className="flex gap-2 justify-center">
-                      {seatRow.map((seatNumber) => renderSeat(seatNumber))}
-                    </div>
-                  ))}
-                  
-                  {/* Door positioned after Row B */}
-                  {row.row === 'B' && (
-                    <div className="flex justify-center mt-4">
-                      <div className="w-20 h-12 bg-gray-500 text-white flex items-center justify-center text-xs font-bold rounded border-2 border-gray-600">
-                        DOOR
-                      </div>
-                    </div>
-                  )}
+            {firstFloorLayout.map((section) => (
+              <div key={section.row} className="space-y-2">
+                <h3 className="font-medium text-gray-700">{section.label}</h3>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {section.seats.map((seatNumber) => renderSeat(seatNumber))}
                 </div>
+                
+                {/* Door positioned after Column B */}
+                {section.row === 'B' && (
+                  <div className="flex justify-center mt-4">
+                    <div className="w-20 h-12 bg-gray-500 text-white flex items-center justify-center text-xs font-bold rounded border-2 border-gray-600">
+                      DOOR
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -421,35 +449,29 @@ const SeatManagement = () => {
             Second Floor Layout (21 Seats)
           </CardTitle>
           <CardDescription>
-            Upper floor with 4 rows and stairway access
+            Columns D, E, F, G with stair and door at top right in front of Column G
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* Second Floor Grid - Top to Bottom Layout */}
+          {/* Stair and Door positioned at the top right for Column G */}
+          <div className="flex justify-end mb-6">
+            <div className="flex flex-col items-center">
+              <div className="w-16 h-8 bg-gray-600 text-white flex items-center justify-center text-xs font-bold rounded mb-1">
+                STAIR
+              </div>
+              <div className="w-16 h-8 bg-gray-500 text-white flex items-center justify-center text-xs font-bold rounded border-2 border-gray-600">
+                DOOR
+              </div>
+            </div>
+          </div>
+
+          {/* Second Floor Grid */}
           <div className="space-y-6">
-            {secondFloorLayout.map((row, index) => (
-              <div key={row.row} className="space-y-2">
-                <h3 className="font-medium text-gray-700">{row.label}</h3>
-                <div className="flex flex-col gap-2 relative">
-                  {row.seats.map((seatRow, rowIndex) => (
-                    <div key={rowIndex} className="flex gap-2 justify-center">
-                      {seatRow.map((seatNumber) => renderSeat(seatNumber))}
-                    </div>
-                  ))}
-                  
-                  {/* Stair and Door positioned at the top for Row D */}
-                  {index === 0 && (
-                    <div className="flex justify-center mb-4">
-                      <div className="flex flex-col items-center">
-                        <div className="w-16 h-8 bg-gray-600 text-white flex items-center justify-center text-xs font-bold rounded mb-1">
-                          STAIR
-                        </div>
-                        <div className="w-16 h-8 bg-gray-500 text-white flex items-center justify-center text-xs font-bold rounded border-2 border-gray-600">
-                          DOOR
-                        </div>
-                      </div>
-                    </div>
-                  )}
+            {secondFloorLayout.map((section) => (
+              <div key={section.row} className="space-y-2">
+                <h3 className="font-medium text-gray-700">{section.label}</h3>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {section.seats.map((seatNumber) => renderSeat(seatNumber))}
                 </div>
               </div>
             ))}
