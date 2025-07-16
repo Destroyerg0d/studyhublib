@@ -23,66 +23,100 @@ interface Plan {
   type: string;
 }
 
+interface Profile {
+  id: string;
+  name: string;
+  email: string;
+}
+
+interface Subscription {
+  id: string;
+  user_id: string;
+  plan_id: string;
+  status: string;
+  plans: {
+    name: string;
+    type: string;
+  };
+}
+
 const SeatArrangement = () => {
   const [selectedSeat, setSelectedSeat] = useState<string | null>(null);
   const [seats, setSeats] = useState<Seat[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [userSeat, setUserSeat] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const fetchSeats = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('seats')
-        .select('*')
-        .order('row_letter')
-        .order('seat_number');
+  // First floor layout - 3 rows with specific seat arrangements
+  const firstFloorLayout = [
+    { row: 'A', seats: [1, 2, 3, 4, 5, 6, 7, 8], label: 'Row A' },
+    { row: 'B', seats: [9, 10, 11, 12, 13], label: 'Row B' },
+    { row: 'C', seats: [14], label: 'Row C' }
+  ];
 
-      if (error) throw error;
-      setSeats(data || []);
+  // Second floor layout - 4 rows with specific arrangements
+  const secondFloorLayout = [
+    { row: 'D', seats: [20, 21, 22, 23, 24, 25], label: 'Row D' },
+    { row: 'E', seats: [26, 27, 28, 29, 30, 31, 32, 33, 34, 35], label: 'Row E' },
+    { row: 'F', seats: [36, 37, 38, 39, 40], label: 'Row F' }
+  ];
+
+  const fetchData = async () => {
+    try {
+      const [seatsData, plansData, profilesData, subscriptionsData] = await Promise.all([
+        supabase.from('seats').select('*').order('row_letter').order('seat_number'),
+        supabase.from('plans').select('*').eq('active', true).order('price'),
+        supabase.from('profiles').select('id, name, email'),
+        supabase.from('subscriptions').select(`
+          id,
+          user_id,
+          plan_id,
+          status,
+          plans (
+            name,
+            type
+          )
+        `).eq('status', 'active')
+      ]);
+
+      if (seatsData.error) throw seatsData.error;
+      if (plansData.error) throw plansData.error;
+      if (profilesData.error) throw profilesData.error;
+      if (subscriptionsData.error) throw subscriptionsData.error;
+
+      setSeats(seatsData.data || []);
+      setPlans(plansData.data || []);
+      setProfiles(profilesData.data || []);
+      setSubscriptions(subscriptionsData.data || []);
 
       // Find user's current seat
-      const currentUserSeat = data?.find(seat => seat.assigned_user_id === user?.id);
+      const currentUserSeat = seatsData.data?.find(seat => seat.assigned_user_id === user?.id);
       setUserSeat(currentUserSeat?.id || null);
     } catch (error) {
-      console.error('Error fetching seats:', error);
+      console.error('Error fetching data:', error);
       toast({
         title: "Error",
         description: "Failed to fetch seats",
         variant: "destructive",
       });
-    }
-  };
-
-  const fetchPlans = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('plans')
-        .select('*')
-        .eq('active', true)
-        .order('price');
-
-      if (error) throw error;
-      setPlans(data || []);
-    } catch (error) {
-      console.error('Error fetching plans:', error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchSeats();
-    fetchPlans();
+    fetchData();
 
     // Set up real-time subscription for seats
     const channel = supabase
       .channel('seat-updates')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'seats' }, 
-        () => fetchSeats()
+        () => fetchData()
       )
       .subscribe();
 
@@ -91,7 +125,8 @@ const SeatArrangement = () => {
     };
   }, [user?.id]);
 
-  const handleSeatClick = (seatId: string) => {
+  const handleSeatClick = (seatNumber: number, row: string) => {
+    const seatId = `${row}-${seatNumber}`;
     const seat = seats.find(s => s.id === seatId);
     if (!seat || seat.status === 'occupied' || seat.id === userSeat) return;
     setSelectedSeat(selectedSeat === seatId ? null : seatId);
@@ -136,7 +171,7 @@ const SeatArrangement = () => {
       });
 
       setSelectedSeat(null);
-      fetchSeats();
+      fetchData();
     } catch (error) {
       console.error('Error booking seat:', error);
       toast({
@@ -147,21 +182,81 @@ const SeatArrangement = () => {
     }
   };
 
-  const getSeatStatus = (seat: Seat) => {
-    if (seat.id === userSeat) return 'my-seat';
-    if (seat.status === 'occupied') return 'booked';
-    if (selectedSeat === seat.id) return 'selected';
+  const getSeatInfo = (seatId: string) => {
+    const seat = seats.find(s => s.id === seatId);
+    if (!seat || !seat.assigned_user_id) return null;
+
+    const profile = profiles.find(p => p.id === seat.assigned_user_id);
+    const subscription = subscriptions.find(s => s.user_id === seat.assigned_user_id);
+
+    return {
+      user: profile,
+      subscription: subscription,
+      seat: seat
+    };
+  };
+
+  const getPlanColor = (planType: string) => {
+    switch (planType?.toLowerCase()) {
+      case 'full shift': return 'bg-orange-100 text-orange-800 border-orange-300';
+      case 'morning': return 'bg-purple-100 text-purple-800 border-purple-300';
+      case 'evening': return 'bg-green-100 text-green-800 border-green-300';
+      case 'full day': return 'bg-blue-100 text-blue-800 border-blue-300';
+      default: return 'bg-gray-100 text-gray-800 border-gray-300';
+    }
+  };
+
+  const getSeatStatus = (seatNumber: number, row: string) => {
+    const seatId = `${row}-${seatNumber}`;
+    const seat = seats.find(s => s.id === seatId);
+    
+    if (seatId === userSeat) return 'my-seat';
+    if (!seat || seat.status === 'occupied') return 'booked';
+    if (selectedSeat === seatId) return 'selected';
     return 'available';
   };
 
-  const getSeatColor = (status: string) => {
-    switch (status) {
-      case 'my-seat': return 'bg-blue-500 text-white border-blue-600';
-      case 'booked': return 'bg-red-100 text-red-800 border-red-300 cursor-not-allowed';
-      case 'selected': return 'bg-yellow-200 text-yellow-900 border-yellow-400';
-      case 'available': return 'bg-green-100 text-green-800 border-green-300 hover:bg-green-200 cursor-pointer';
-      default: return 'bg-gray-100 text-gray-800 border-gray-300';
+  const getSeatColor = (status: string, seatId?: string) => {
+    if (status === 'my-seat') return 'bg-blue-500 text-white border-blue-600';
+    if (status === 'selected') return 'bg-yellow-200 text-yellow-900 border-yellow-400';
+    if (status === 'available') return 'bg-green-100 text-green-800 border-green-300 hover:bg-green-200 cursor-pointer';
+    
+    // For occupied seats, get plan color
+    if (seatId) {
+      const seatInfo = getSeatInfo(seatId);
+      if (seatInfo?.subscription?.plans) {
+        return getPlanColor(seatInfo.subscription.plans.type) + ' cursor-not-allowed';
+      }
     }
+    
+    return 'bg-red-100 text-red-800 border-red-300 cursor-not-allowed';
+  };
+
+  const renderSeat = (seatNumber: number, row: string) => {
+    const seatId = `${row}-${seatNumber}`;
+    const seatInfo = getSeatInfo(seatId);
+    const status = getSeatStatus(seatNumber, row);
+    const seatColor = getSeatColor(status, seatId);
+    
+    return (
+      <button
+        key={seatId}
+        onClick={() => handleSeatClick(seatNumber, row)}
+        disabled={status === 'booked' || status === 'my-seat'}
+        className={`
+          w-12 h-12 rounded-lg border-2 text-xs font-medium
+          flex flex-col items-center justify-center transition-colors
+          ${seatColor}
+        `}
+      >
+        <span className="font-bold">{seatNumber}</span>
+        {seatInfo?.user && (
+          <span className="text-[8px] leading-none truncate w-full text-center">
+            {seatInfo.user.name.split(' ')[0]}
+          </span>
+        )}
+      </button>
+    );
   };
 
   if (loading) {
@@ -175,10 +270,6 @@ const SeatArrangement = () => {
   const totalSeats = seats.length;
   const occupiedSeats = seats.filter(seat => seat.status === 'occupied').length;
   const availableSeats = totalSeats - occupiedSeats;
-
-  // Group seats by floor and section
-  const lowerFloorSeats = seats.filter(seat => seat.row_letter === 'A' || seat.row_letter === 'B');
-  const upperFloorSeats = seats.filter(seat => seat.row_letter === 'C' || seat.row_letter === 'D');
 
   return (
     <div className="space-y-6">
@@ -233,14 +324,27 @@ const SeatArrangement = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {plans.map((plan) => (
-              <div key={plan.id} className="p-4 bg-blue-50 rounded-lg border">
-                <h4 className="font-semibold text-blue-900">{plan.name}</h4>
-                <p className="text-sm text-blue-700">{plan.type}</p>
-                <p className="text-xl font-bold text-blue-900">₹{plan.price}</p>
-              </div>
-            ))}
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 bg-orange-50 rounded-lg border">
+              <h4 className="font-semibold text-orange-900">Full Shift</h4>
+              <p className="text-sm text-orange-700">8 AM - 8 PM</p>
+              <div className="w-4 h-4 bg-orange-100 border border-orange-300 rounded mt-2"></div>
+            </div>
+            <div className="p-4 bg-purple-50 rounded-lg border">
+              <h4 className="font-semibold text-purple-900">Morning</h4>
+              <p className="text-sm text-purple-700">8 AM - 2 PM</p>
+              <div className="w-4 h-4 bg-purple-100 border border-purple-300 rounded mt-2"></div>
+            </div>
+            <div className="p-4 bg-green-50 rounded-lg border">
+              <h4 className="font-semibold text-green-900">Evening</h4>
+              <p className="text-sm text-green-700">2 PM - 8 PM</p>
+              <div className="w-4 h-4 bg-green-100 border border-green-300 rounded mt-2"></div>
+            </div>
+            <div className="p-4 bg-blue-50 rounded-lg border">
+              <h4 className="font-semibold text-blue-900">Full Day</h4>
+              <p className="text-sm text-blue-700">24/7 Access</p>
+              <div className="w-4 h-4 bg-blue-100 border border-blue-300 rounded mt-2"></div>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -258,9 +362,7 @@ const SeatArrangement = () => {
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-lg font-semibold text-blue-900">Seat {userSeat}</p>
-                <p className="text-blue-700">
-                  Your assigned seat
-                </p>
+                <p className="text-blue-700">Your assigned seat</p>
               </div>
               <Badge className="bg-blue-500 text-white">Your Seat</Badge>
             </div>
@@ -268,15 +370,15 @@ const SeatArrangement = () => {
         </Card>
       )}
 
-      {/* Seat Map */}
+      {/* First Floor */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
             <Building className="h-5 w-5 mr-2" />
-            Lower Floor Layout
+            First Floor Layout
           </CardTitle>
           <CardDescription>
-            Sections A & B - Click on an available seat to select and book it
+            Ground floor with 14 seats - Click on an available seat to select and book it
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -287,10 +389,6 @@ const SeatArrangement = () => {
               <span className="text-sm">Available</span>
             </div>
             <div className="flex items-center">
-              <div className="w-4 h-4 bg-red-100 border border-red-300 rounded mr-2"></div>
-              <span className="text-sm">Occupied</span>
-            </div>
-            <div className="flex items-center">
               <div className="w-4 h-4 bg-blue-500 border border-blue-600 rounded mr-2"></div>
               <span className="text-sm">Your Seat</span>
             </div>
@@ -298,82 +396,79 @@ const SeatArrangement = () => {
               <div className="w-4 h-4 bg-yellow-200 border border-yellow-400 rounded mr-2"></div>
               <span className="text-sm">Selected</span>
             </div>
+            <div className="flex items-center">
+              <div className="w-4 h-4 bg-orange-100 border border-orange-300 rounded mr-2"></div>
+              <span className="text-sm">Full Shift</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-4 h-4 bg-purple-100 border border-purple-300 rounded mr-2"></div>
+              <span className="text-sm">Morning</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-4 h-4 bg-green-100 border border-green-300 rounded mr-2"></div>
+              <span className="text-sm">Evening</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-4 h-4 bg-blue-100 border border-blue-300 rounded mr-2"></div>
+              <span className="text-sm">Full Day</span>
+            </div>
           </div>
 
-          {/* Lower Floor Grid */}
+          {/* Door indicator */}
+          <div className="mb-4">
+            <div className="w-20 h-8 bg-orange-500 text-white flex items-center justify-center text-xs font-bold rounded">
+              DOOR
+            </div>
+          </div>
+
+          {/* First Floor Grid */}
           <div className="space-y-6">
-            {['A', 'B'].map((section) => {
-              const sectionSeats = lowerFloorSeats.filter(seat => seat.row_letter === section);
-              return (
-                <div key={section} className="space-y-2">
-                  <h3 className="font-medium text-gray-700">Section {section}</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {sectionSeats.map((seat) => {
-                      const status = getSeatStatus(seat);
-                      return (
-                        <button
-                          key={seat.id}
-                          onClick={() => handleSeatClick(seat.id)}
-                          disabled={status === 'booked' || status === 'my-seat'}
-                          className={`
-                            w-12 h-12 rounded-lg border-2 text-xs font-medium
-                            flex items-center justify-center transition-colors
-                            ${getSeatColor(status)}
-                          `}
-                        >
-                          {seat.seat_number}
-                        </button>
-                      );
-                    })}
-                  </div>
+            {firstFloorLayout.map((row) => (
+              <div key={row.row} className="space-y-2">
+                <h3 className="font-medium text-gray-700">{row.label}</h3>
+                <div className="flex flex-wrap gap-2">
+                  {row.seats.map((seatNumber) => renderSeat(seatNumber, row.row))}
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
 
-      {/* Upper Floor */}
+      {/* Second Floor */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
             <Building2 className="h-5 w-5 mr-2" />
-            Upper Floor Layout
+            Second Floor Layout
           </CardTitle>
           <CardDescription>
-            Sections C & D
+            Upper floor with 22 seats
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* Upper Floor Grid */}
+          {/* Stair and Door indicator */}
+          <div className="mb-4 flex justify-end">
+            <div className="flex flex-col items-center">
+              <div className="w-16 h-6 bg-gray-600 text-white flex items-center justify-center text-xs font-bold rounded mb-1">
+                STAIR
+              </div>
+              <div className="w-16 h-6 bg-orange-500 text-white flex items-center justify-center text-xs font-bold rounded">
+                DOOR
+              </div>
+            </div>
+          </div>
+
+          {/* Second Floor Grid */}
           <div className="space-y-6">
-            {['C', 'D'].map((section) => {
-              const sectionSeats = upperFloorSeats.filter(seat => seat.row_letter === section);
-              return (
-                <div key={section} className="space-y-2">
-                  <h3 className="font-medium text-gray-700">Section {section}</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {sectionSeats.map((seat) => {
-                      const status = getSeatStatus(seat);
-                      return (
-                        <button
-                          key={seat.id}
-                          onClick={() => handleSeatClick(seat.id)}
-                          disabled={status === 'booked' || status === 'my-seat'}
-                          className={`
-                            w-12 h-12 rounded-lg border-2 text-xs font-medium
-                            flex items-center justify-center transition-colors
-                            ${getSeatColor(status)}
-                          `}
-                        >
-                          {seat.seat_number}
-                        </button>
-                      );
-                    })}
-                  </div>
+            {secondFloorLayout.map((row) => (
+              <div key={row.row} className="space-y-2">
+                <h3 className="font-medium text-gray-700">{row.label}</h3>
+                <div className="flex flex-wrap gap-2">
+                  {row.seats.map((seatNumber) => renderSeat(seatNumber, row.row))}
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
 
           {/* Book Button */}
@@ -382,9 +477,7 @@ const SeatArrangement = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium">Selected Seat: {selectedSeat}</p>
-                  <p className="text-sm text-gray-600">
-                    Ready to book this seat
-                  </p>
+                  <p className="text-sm text-gray-600">Ready to book this seat</p>
                 </div>
                 <div className="space-x-2">
                   <Button variant="outline" onClick={() => setSelectedSeat(null)}>

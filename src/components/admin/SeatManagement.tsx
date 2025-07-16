@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,59 +14,299 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Users, Settings, Eye, UserX, BarChart3 } from "lucide-react";
+import { Users, Settings, Eye, UserX, BarChart3, Building, Building2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+
+interface Seat {
+  id: string;
+  row_letter: string;
+  seat_number: number;
+  status: string;
+  assigned_user_id: string | null;
+}
+
+interface Profile {
+  id: string;
+  name: string;
+  email: string;
+}
+
+interface Subscription {
+  id: string;
+  user_id: string;
+  plan_id: string;
+  status: string;
+  plans: {
+    name: string;
+    type: string;
+  };
+}
 
 const SeatManagement = () => {
   const [selectedSeat, setSelectedSeat] = useState<string | null>(null);
+  const [seats, setSeats] = useState<Seat[]>([]);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  // Mock seat data with assignments
-  const seatAssignments = {
-    'A-1': { user: 'Rahul Kumar', email: 'rahul@email.com', plan: 'Day Time', status: 'active' },
-    'A-3': { user: 'Priya Sharma', email: 'priya@email.com', plan: 'Night Time', status: 'active' },
-    'A-5': { user: 'Amit Singh', email: 'amit@email.com', plan: 'Day Time', status: 'pending' },
-    'B-2': { user: 'Sneha Patel', email: 'sneha@email.com', plan: 'Day Time', status: 'active' },
-    'B-4': { user: 'Vikash Gupta', email: 'vikash@email.com', plan: 'Day Time', status: 'overdue' },
-    'C-1': { user: 'Ravi Sharma', email: 'ravi@email.com', plan: 'Night Time', status: 'active' },
-    'C-3': { user: 'Anjali Verma', email: 'anjali@email.com', plan: 'Day Time', status: 'active' },
-    'D-2': { user: 'Manish Kumar', email: 'manish@email.com', plan: 'Day Time', status: 'active' },
-    'D-6': { user: 'Kavya Singh', email: 'kavya@email.com', plan: 'Night Time', status: 'active' },
-  };
-
-  const seatRows = [
-    { row: 'A', seats: 5, label: 'Row 1' },
-    { row: 'B', seats: 5, label: 'Row 2' },
-    { row: 'C', seats: 5, label: 'Row 3' },
-    { row: 'D', seats: 6, label: 'Row 4' },
+  // First floor layout - 3 rows (A, B, C) with specific seat arrangements
+  const firstFloorLayout = [
+    { row: 'A', seats: [1, 2, 3, 4, 5, 6, 7, 8], label: 'Row A' },
+    { row: 'B', seats: [9, 10, 11, 12, 13], label: 'Row B' },
+    { row: 'C', seats: [14], label: 'Row C' }
   ];
 
-  const handleSeatAction = (action: string, seatId: string) => {
-    toast({
-      title: `${action} successful`,
-      description: `Action completed for seat ${seatId}`,
-    });
+  // Second floor layout - 4 rows (D, E, F, G) with specific arrangements
+  const secondFloorLayout = [
+    { row: 'D', seats: [20, 21, 22, 23, 24, 25], label: 'Row D' },
+    { row: 'E', seats: [26, 27, 28, 29, 30, 31, 32, 33, 34, 35], label: 'Row E' },
+    { row: 'F', seats: [36, 37, 38, 39, 40], label: 'Row F' }
+  ];
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch seats
+      const { data: seatsData, error: seatsError } = await supabase
+        .from('seats')
+        .select('*')
+        .order('row_letter')
+        .order('seat_number');
+
+      if (seatsError) throw seatsError;
+
+      // Fetch profiles
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, name, email');
+
+      if (profilesError) throw profilesError;
+
+      // Fetch subscriptions with plans
+      const { data: subscriptionsData, error: subscriptionsError } = await supabase
+        .from('subscriptions')
+        .select(`
+          id,
+          user_id,
+          plan_id,
+          status,
+          plans (
+            name,
+            type
+          )
+        `)
+        .eq('status', 'active');
+
+      if (subscriptionsError) throw subscriptionsError;
+
+      setSeats(seatsData || []);
+      setProfiles(profilesData || []);
+      setSubscriptions(subscriptionsData || []);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const getSeatStatus = (seatId: string) => {
-    const assignment = seatAssignments[seatId as keyof typeof seatAssignments];
-    if (!assignment) return 'available';
-    return assignment.status;
+  useEffect(() => {
+    fetchData();
+
+    // Set up real-time subscriptions
+    const channel = supabase
+      .channel('admin-seat-management')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'seats' }, 
+        () => fetchData()
+      )
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'subscriptions' }, 
+        () => fetchData()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const handleSeatAction = async (action: string, seatId: string) => {
+    try {
+      if (action === "Release Seat") {
+        const { error } = await supabase
+          .from('seats')
+          .update({ 
+            status: 'available', 
+            assigned_user_id: null 
+          })
+          .eq('id', seatId);
+
+        if (error) throw error;
+      }
+
+      toast({
+        title: `${action} successful`,
+        description: `Action completed for seat ${seatId}`,
+      });
+    } catch (error) {
+      console.error('Error performing seat action:', error);
+      toast({
+        title: "Error",
+        description: "Failed to perform action",
+        variant: "destructive",
+      });
+    }
   };
 
-  const getSeatColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'bg-green-100 text-green-800 border-green-300';
-      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      case 'overdue': return 'bg-red-100 text-red-800 border-red-300';
-      case 'available': return 'bg-gray-100 text-gray-800 border-gray-300';
+  const getSeatInfo = (seatId: string) => {
+    const seat = seats.find(s => s.id === seatId);
+    if (!seat || !seat.assigned_user_id) return null;
+
+    const profile = profiles.find(p => p.id === seat.assigned_user_id);
+    const subscription = subscriptions.find(s => s.user_id === seat.assigned_user_id);
+
+    return {
+      user: profile,
+      subscription: subscription,
+      seat: seat
+    };
+  };
+
+  const getPlanColor = (planType: string) => {
+    switch (planType?.toLowerCase()) {
+      case 'full shift': return 'bg-orange-100 text-orange-800 border-orange-300';
+      case 'morning': return 'bg-purple-100 text-purple-800 border-purple-300';
+      case 'evening': return 'bg-green-100 text-green-800 border-green-300';
+      case 'full day': return 'bg-blue-100 text-blue-800 border-blue-300';
       default: return 'bg-gray-100 text-gray-800 border-gray-300';
     }
   };
 
-  const totalSeats = seatRows.reduce((sum, row) => sum + row.seats, 0);
-  const occupiedSeats = Object.keys(seatAssignments).length;
+  const getSeatStatus = (seatId: string) => {
+    const seat = seats.find(s => s.id === seatId);
+    if (!seat) return 'available';
+    return seat.status;
+  };
+
+  const renderSeat = (seatNumber: number, row: string) => {
+    const seatId = `${row}-${seatNumber}`;
+    const seatInfo = getSeatInfo(seatId);
+    const status = getSeatStatus(seatId);
+    
+    let seatColor = 'bg-gray-100 text-gray-800 border-gray-300';
+    
+    if (seatInfo?.subscription?.plans) {
+      seatColor = getPlanColor(seatInfo.subscription.plans.type);
+    }
+
+    return (
+      <Dialog key={seatId}>
+        <DialogTrigger asChild>
+          <button
+            className={`
+              w-16 h-16 rounded-lg border-2 text-xs font-medium
+              flex flex-col items-center justify-center transition-colors
+              hover:shadow-md cursor-pointer
+              ${seatColor}
+            `}
+          >
+            <span className="font-bold">{seatNumber}</span>
+            {seatInfo?.user && (
+              <span className="text-[8px] leading-none truncate w-full text-center">
+                {seatInfo.user.name.split(' ')[0]}
+              </span>
+            )}
+          </button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Seat {seatId} Details</DialogTitle>
+            <DialogDescription>
+              Manage this seat assignment and view details
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {seatInfo?.user ? (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium">Student Name</Label>
+                    <p className="text-sm">{seatInfo.user.name}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Email</Label>
+                    <p className="text-sm">{seatInfo.user.email}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Plan</Label>
+                    <p className="text-sm">{seatInfo.subscription?.plans?.name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Plan Type</Label>
+                    <Badge className={getPlanColor(seatInfo.subscription?.plans?.type || '')}>
+                      {seatInfo.subscription?.plans?.type || 'N/A'}
+                    </Badge>
+                  </div>
+                </div>
+                
+                <div className="flex space-x-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleSeatAction("View Profile", seatId)}
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    View Profile
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleSeatAction("Release Seat", seatId)}
+                  >
+                    <UserX className="h-4 w-4 mr-2" />
+                    Release Seat
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-4">
+                <Users className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                <p className="text-gray-500">This seat is available</p>
+                <Button
+                  className="mt-3"
+                  size="sm"
+                  onClick={() => handleSeatAction("Assign Seat", seatId)}
+                >
+                  Assign to Student
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg">Loading seats...</div>
+      </div>
+    );
+  }
+
+  const totalSeats = seats.length;
+  const occupiedSeats = seats.filter(seat => seat.status === 'occupied').length;
   const availableSeats = totalSeats - occupiedSeats;
-  const activeSeats = Object.values(seatAssignments).filter(a => a.status === 'active').length;
+  const activeSeats = seats.filter(seat => seat.status === 'occupied').length;
 
   return (
     <div className="space-y-6">
@@ -103,7 +343,7 @@ const SeatManagement = () => {
           <CardContent className="flex items-center justify-center p-6">
             <div className="text-center">
               <div className="text-2xl font-bold text-purple-600">
-                {Math.round((occupiedSeats / totalSeats) * 100)}%
+                {totalSeats > 0 ? Math.round((occupiedSeats / totalSeats) * 100) : 0}%
               </div>
               <div className="text-sm text-gray-600">Occupancy</div>
             </div>
@@ -111,14 +351,15 @@ const SeatManagement = () => {
         </Card>
       </div>
 
+      {/* First Floor */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
-            <BarChart3 className="h-5 w-5 mr-2" />
-            Seat Management
+            <Building className="h-5 w-5 mr-2" />
+            First Floor Layout
           </CardTitle>
           <CardDescription>
-            Manage seat assignments and monitor occupancy
+            Ground floor with 14 seats arranged in 3 rows
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -129,119 +370,75 @@ const SeatManagement = () => {
               <span className="text-sm">Available</span>
             </div>
             <div className="flex items-center">
+              <div className="w-4 h-4 bg-orange-100 border border-orange-300 rounded mr-2"></div>
+              <span className="text-sm">Full Shift</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-4 h-4 bg-purple-100 border border-purple-300 rounded mr-2"></div>
+              <span className="text-sm">Morning</span>
+            </div>
+            <div className="flex items-center">
               <div className="w-4 h-4 bg-green-100 border border-green-300 rounded mr-2"></div>
-              <span className="text-sm">Active</span>
+              <span className="text-sm">Evening</span>
             </div>
             <div className="flex items-center">
-              <div className="w-4 h-4 bg-yellow-100 border border-yellow-300 rounded mr-2"></div>
-              <span className="text-sm">Pending</span>
-            </div>
-            <div className="flex items-center">
-              <div className="w-4 h-4 bg-red-100 border border-red-300 rounded mr-2"></div>
-              <span className="text-sm">Overdue</span>
+              <div className="w-4 h-4 bg-blue-100 border border-blue-300 rounded mr-2"></div>
+              <span className="text-sm">Full Day</span>
             </div>
           </div>
 
-          {/* Seat Grid */}
+          {/* Door indicator */}
+          <div className="mb-4">
+            <div className="w-20 h-8 bg-orange-500 text-white flex items-center justify-center text-xs font-bold rounded">
+              DOOR
+            </div>
+          </div>
+
+          {/* First Floor Seat Grid */}
           <div className="space-y-6">
-            {seatRows.map((row) => (
+            {firstFloorLayout.map((row) => (
               <div key={row.row} className="space-y-2">
                 <h3 className="font-medium text-gray-700">{row.label}</h3>
                 <div className="flex flex-wrap gap-2">
-                  {Array.from({ length: row.seats }, (_, i) => {
-                    const seatNumber = i + 1;
-                    const seatId = `${row.row}-${seatNumber}`;
-                    const status = getSeatStatus(seatId);
-                    const assignment = seatAssignments[seatId as keyof typeof seatAssignments];
-                    
-                    return (
-                      <Dialog key={seatId}>
-                        <DialogTrigger asChild>
-                          <button
-                            className={`
-                              w-16 h-16 rounded-lg border-2 text-xs font-medium
-                              flex flex-col items-center justify-center transition-colors
-                              hover:shadow-md cursor-pointer
-                              ${getSeatColor(status)}
-                            `}
-                          >
-                            <span className="font-bold">{seatNumber}</span>
-                            {assignment && (
-                              <span className="text-[8px] leading-none">
-                                {assignment.user.split(' ')[0]}
-                              </span>
-                            )}
-                          </button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Seat {seatId} Details</DialogTitle>
-                            <DialogDescription>
-                              Manage this seat assignment and view details
-                            </DialogDescription>
-                          </DialogHeader>
-                          
-                          <div className="space-y-4">
-                            {assignment ? (
-                              <>
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div>
-                                    <Label className="text-sm font-medium">Student Name</Label>
-                                    <p className="text-sm">{assignment.user}</p>
-                                  </div>
-                                  <div>
-                                    <Label className="text-sm font-medium">Email</Label>
-                                    <p className="text-sm">{assignment.email}</p>
-                                  </div>
-                                  <div>
-                                    <Label className="text-sm font-medium">Plan</Label>
-                                    <p className="text-sm">{assignment.plan}</p>
-                                  </div>
-                                  <div>
-                                    <Label className="text-sm font-medium">Status</Label>
-                                    <Badge className={getSeatColor(assignment.status)}>
-                                      {assignment.status.charAt(0).toUpperCase() + assignment.status.slice(1)}
-                                    </Badge>
-                                  </div>
-                                </div>
-                                
-                                <div className="flex space-x-2">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleSeatAction("View Profile", seatId)}
-                                  >
-                                    <Eye className="h-4 w-4 mr-2" />
-                                    View Profile
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleSeatAction("Release Seat", seatId)}
-                                  >
-                                    <UserX className="h-4 w-4 mr-2" />
-                                    Release Seat
-                                  </Button>
-                                </div>
-                              </>
-                            ) : (
-                              <div className="text-center py-4">
-                                <Users className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                                <p className="text-gray-500">This seat is available</p>
-                                <Button
-                                  className="mt-3"
-                                  size="sm"
-                                  onClick={() => handleSeatAction("Assign Seat", seatId)}
-                                >
-                                  Assign to Student
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    );
-                  })}
+                  {row.seats.map((seatNumber) => renderSeat(seatNumber, row.row))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Second Floor */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Building2 className="h-5 w-5 mr-2" />
+            Second Floor Layout
+          </CardTitle>
+          <CardDescription>
+            Upper floor with 22 seats arranged in 4 rows
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {/* Stair and Door indicator */}
+          <div className="mb-4 flex justify-end">
+            <div className="flex flex-col items-center">
+              <div className="w-16 h-6 bg-gray-600 text-white flex items-center justify-center text-xs font-bold rounded mb-1">
+                STAIR
+              </div>
+              <div className="w-16 h-6 bg-orange-500 text-white flex items-center justify-center text-xs font-bold rounded">
+                DOOR
+              </div>
+            </div>
+          </div>
+
+          {/* Second Floor Seat Grid */}
+          <div className="space-y-6">
+            {secondFloorLayout.map((row) => (
+              <div key={row.row} className="space-y-2">
+                <h3 className="font-medium text-gray-700">{row.label}</h3>
+                <div className="flex flex-wrap gap-2">
+                  {row.seats.map((seatNumber) => renderSeat(seatNumber, row.row))}
                 </div>
               </div>
             ))}
@@ -258,10 +455,10 @@ const SeatManagement = () => {
           <div className="grid md:grid-cols-3 gap-6">
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600">
-                {Math.round((activeSeats / totalSeats) * 100)}%
+                {totalSeats > 0 ? Math.round((activeSeats / totalSeats) * 100) : 0}%
               </div>
               <div className="text-sm text-gray-600">Active Occupancy Rate</div>
-              <div className="text-xs text-green-600">+5% from last month</div>
+              <div className="text-xs text-green-600">Real-time data</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600">
@@ -272,7 +469,7 @@ const SeatManagement = () => {
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-purple-600">
-                {Object.values(seatAssignments).filter(a => a.status === 'pending').length}
+                {seats.filter(s => s.status === 'pending').length}
               </div>
               <div className="text-sm text-gray-600">Pending Assignments</div>
               <div className="text-xs text-yellow-600">Require attention</div>
