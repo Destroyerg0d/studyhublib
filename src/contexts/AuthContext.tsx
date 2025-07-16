@@ -14,6 +14,8 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: any; success?: boolean }>;
   signUp: (email: string, password: string, name: string) => Promise<{ error: any; success?: boolean }>;
   signOut: () => Promise<void>;
+  logout: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -60,6 +62,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Error in createOrUpdateProfile:', error);
       return null;
+    }
+  };
+
+  const refreshProfile = async () => {
+    if (!user) return;
+    
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error refreshing profile:', error);
+        return;
+      }
+
+      setProfile(profile);
+    } catch (error) {
+      console.error('Error in refreshProfile:', error);
     }
   };
 
@@ -181,6 +204,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Alias for signOut to maintain compatibility
+  const logout = signOut;
+
   const value = {
     user,
     profile,
@@ -189,6 +215,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signIn,
     signUp,
     signOut,
+    logout,
+    refreshProfile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
