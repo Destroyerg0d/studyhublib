@@ -1,6 +1,5 @@
 
 import { Routes, Route, Navigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
 import DashboardLayout from "@/components/DashboardLayout";
 import DashboardHome from "@/components/dashboard/DashboardHome";
 import Timetable from "@/components/dashboard/Timetable";
@@ -11,12 +10,6 @@ import Verification from "@/components/dashboard/Verification";
 import ComingSoon from "@/components/dashboard/ComingSoon";
 
 const Dashboard = () => {
-  const { user } = useAuth();
-
-  if (!user) {
-    return <Navigate to="/auth" replace />;
-  }
-
   return (
     <DashboardLayout>
       <Routes>

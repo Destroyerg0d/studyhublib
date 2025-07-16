@@ -6,8 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
   DialogContent,
@@ -43,103 +41,69 @@ const VerificationManagement = () => {
   const [rejectionReason, setRejectionReason] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
-  const { profile } = useAuth();
 
-  // Fetch verification requests
+  // Mock data for demonstration
   useEffect(() => {
-    const fetchVerificationRequests = async () => {
-      const { data, error } = await supabase
-        .from('verification_requests')
-        .select(`
-          *,
-          profiles (
-            id,
-            name,
-            email,
-            phone,
-            address,
-            date_of_birth,
-            emergency_contact_name,
-            emergency_contact_phone,
-            emergency_contact_relation
-          )
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching verification requests:', error);
-        toast({
-          title: "Error",
-          description: "Failed to fetch verification requests.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      setVerificationRequests(data || []);
-    };
-
-    fetchVerificationRequests();
-
-    // Set up real-time subscription
-    const subscription = supabase
-      .channel('verification-admin-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'verification_requests'
+    const mockRequests = [
+      {
+        id: '1',
+        status: 'pending',
+        created_at: new Date().toISOString(),
+        profiles: {
+          name: 'John Doe',
+          email: 'john@example.com',
+          phone: '+91 98765 43210',
+          address: '123 Main Street, City',
+          date_of_birth: '1995-01-15',
+          emergency_contact_name: 'Jane Doe',
+          emergency_contact_phone: '+91 98765 43211',
+          emergency_contact_relation: 'Mother'
         },
-        () => {
-          fetchVerificationRequests();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(subscription);
-    };
-  }, [toast]);
+        aadhar_front_url: 'mock-front-url',
+        aadhar_back_url: 'mock-back-url'
+      },
+      {
+        id: '2',
+        status: 'approved',
+        created_at: new Date(Date.now() - 86400000).toISOString(),
+        reviewed_at: new Date().toISOString(),
+        profiles: {
+          name: 'Alice Smith',
+          email: 'alice@example.com',
+          phone: '+91 98765 43212',
+          address: '456 Oak Avenue, City',
+          date_of_birth: '1997-03-20',
+          emergency_contact_name: 'Bob Smith',
+          emergency_contact_phone: '+91 98765 43213',
+          emergency_contact_relation: 'Father'
+        },
+        aadhar_front_url: 'mock-front-url-2',
+        aadhar_back_url: 'mock-back-url-2'
+      }
+    ];
+    
+    setVerificationRequests(mockRequests);
+  }, []);
 
   const handleVerificationAction = async (action: 'approved' | 'rejected', requestId: string, reason?: string) => {
-    if (!profile?.id) return;
-
     setIsProcessing(true);
     try {
-      const updateData: any = {
-        status: action,
-        reviewed_by: profile.id,
-        reviewed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      if (action === 'rejected' && reason) {
-        updateData.rejection_reason = reason;
-      }
-
-      const { error: requestError } = await supabase
-        .from('verification_requests')
-        .update(updateData)
-        .eq('id', requestId);
-
-      if (requestError) throw requestError;
-
-      // If approved, update the user's profile to verified
-      if (action === 'approved') {
-        const request = verificationRequests.find(r => r.id === requestId);
-        if (request?.user_id) {
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .update({ 
-              verified: true,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', request.user_id);
-
-          if (profileError) throw profileError;
-        }
-      }
+      // Update local state
+      setVerificationRequests(prev => 
+        prev.map(req => 
+          req.id === requestId 
+            ? { 
+                ...req, 
+                status: action, 
+                reviewed_at: new Date().toISOString(),
+                rejection_reason: action === 'rejected' ? reason : undefined
+              }
+            : req
+        )
+      );
 
       toast({
         title: `Verification ${action}`,
@@ -162,35 +126,10 @@ const VerificationManagement = () => {
   };
 
   const downloadDocument = async (url: string, fileName: string) => {
-    try {
-      const { data, error } = await supabase.storage
-        .from('verification-docs')
-        .download(url);
-
-      if (error) throw error;
-
-      const blob = new Blob([data]);
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = downloadUrl;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(downloadUrl);
-      document.body.removeChild(a);
-
-      toast({
-        title: "Download Started",
-        description: "Document download has started.",
-      });
-    } catch (error) {
-      console.error('Download error:', error);
-      toast({
-        title: "Download Failed",
-        description: "Failed to download document.",
-        variant: "destructive"
-      });
-    }
+    toast({
+      title: "Download Started",
+      description: "Document download would start in a real implementation.",
+    });
   };
 
   const getStatusColor = (status: string) => {

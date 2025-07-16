@@ -1,31 +1,85 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Users, CheckCircle, X, User } from "lucide-react";
+import { Users, CheckCircle, User } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Tables } from "@/integrations/supabase/types";
+
+type Seat = Tables<'seats'>;
 
 const SeatArrangement = () => {
   const [selectedSeat, setSelectedSeat] = useState<string | null>(null);
-  const [bookedSeats, setBookedSeats] = useState<Set<string>>(new Set(['A-3', 'A-5', 'B-2', 'B-4', 'C-1', 'C-3', 'D-2', 'D-6']));
-  const [mySeat, setMySeat] = useState<string | null>('A-15'); // User's current seat
+  const [seats, setSeats] = useState<Seat[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  // Define seat arrangement: 4 rows with different column counts
-  const seatRows = [
-    { row: 'A', seats: 5, label: 'Row 1' },
-    { row: 'B', seats: 5, label: 'Row 2' },
-    { row: 'C', seats: 5, label: 'Row 3' },
-    { row: 'D', seats: 6, label: 'Row 4' },
-  ];
+  // Define seat arrangement: Lower and Upper floors
+  const seatLayout = {
+    lowerFloor: {
+      leftSide: [
+        { row: 'A', seats: 8, label: 'Night Ch' },
+        { row: 'B', seats: 8, label: 'Morning' },
+        { row: 'C', seats: 8, label: 'Evening' },
+        { row: 'D', seats: 8, label: 'Full Day' }
+      ]
+    },
+    upperFloor: {
+      rightSide: [
+        { row: 'E', seats: 10, label: 'Upper Floor A' },
+        { row: 'F', seats: 10, label: 'Upper Floor B' },
+        { row: 'G', seats: 10, label: 'Upper Floor C' },
+        { row: 'H', seats: 10, label: 'Upper Floor D' }
+      ]
+    }
+  };
+
+  useEffect(() => {
+    fetchSeats();
+
+    // Set up real-time subscriptions
+    const seatsChannel = supabase
+      .channel('seats-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'seats' }, fetchSeats)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(seatsChannel);
+    };
+  }, []);
+
+  const fetchSeats = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('seats')
+        .select('*')
+        .order('row_letter', { ascending: true })
+        .order('seat_number', { ascending: true });
+
+      if (error) throw error;
+      setSeats(data || []);
+    } catch (error) {
+      console.error('Error fetching seats:', error);
+      toast({
+        title: "Error loading seats",
+        description: "Please try refreshing the page.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSeatClick = (seatId: string) => {
-    if (bookedSeats.has(seatId) || seatId === mySeat) return;
+    const seat = seats.find(s => s.id === seatId);
+    if (!seat || seat.status !== 'available') return;
+    
     setSelectedSeat(selectedSeat === seatId ? null : seatId);
   };
 
-  const handleBookSeat = () => {
+  const handleBookSeat = async () => {
     if (!selectedSeat) {
       toast({
         title: "Please select a seat",
@@ -35,48 +89,104 @@ const SeatArrangement = () => {
       return;
     }
 
-    // Simulate booking
-    setBookedSeats(prev => new Set([...prev, selectedSeat]));
-    if (mySeat) {
-      setBookedSeats(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(mySeat);
-        return newSet;
+    try {
+      // Update seat status
+      const { error: seatError } = await supabase
+        .from('seats')
+        .update({ 
+          status: 'occupied'
+        })
+        .eq('id', selectedSeat);
+
+      if (seatError) throw seatError;
+
+      setSelectedSeat(null);
+      toast({
+        title: "Seat booked successfully!",
+        description: `You have booked seat ${selectedSeat}.`,
+      });
+    } catch (error) {
+      console.error('Error booking seat:', error);
+      toast({
+        title: "Booking failed",
+        description: "There was an error booking your seat. Please try again.",
+        variant: "destructive",
       });
     }
-    setMySeat(selectedSeat);
-    setSelectedSeat(null);
-
-    toast({
-      title: "Seat booked successfully!",
-      description: `You have booked seat ${selectedSeat}. Your previous seat has been released.`,
-    });
   };
 
   const getSeatStatus = (seatId: string) => {
-    if (seatId === mySeat) return 'my-seat';
-    if (bookedSeats.has(seatId)) return 'booked';
+    const seat = seats.find(s => s.id === seatId);
+    if (!seat) return 'available';
+    
+    if (seat.status === 'occupied') return 'occupied';
+    if (seat.status === 'maintenance') return 'maintenance';
     if (selectedSeat === seatId) return 'selected';
     return 'available';
   };
 
   const getSeatColor = (status: string) => {
     switch (status) {
-      case 'my-seat': return 'bg-blue-500 text-white border-blue-600';
-      case 'booked': return 'bg-red-100 text-red-800 border-red-300 cursor-not-allowed';
+      case 'occupied': return 'bg-red-100 text-red-800 border-red-300 cursor-not-allowed';
+      case 'maintenance': return 'bg-orange-100 text-orange-800 border-orange-300 cursor-not-allowed';
       case 'selected': return 'bg-yellow-200 text-yellow-900 border-yellow-400';
       case 'available': return 'bg-green-100 text-green-800 border-green-300 hover:bg-green-200 cursor-pointer';
       default: return 'bg-gray-100 text-gray-800 border-gray-300';
     }
   };
 
-  const totalSeats = seatRows.reduce((sum, row) => sum + row.seats, 0);
-  const availableSeats = totalSeats - bookedSeats.size;
+  const totalSeats = Object.values(seatLayout.lowerFloor.leftSide).reduce((sum, row) => sum + row.seats, 0) +
+                   Object.values(seatLayout.upperFloor.rightSide).reduce((sum, row) => sum + row.seats, 0);
+  const occupiedSeats = seats.filter(s => s.status === 'occupied').length;
+  const availableSeats = totalSeats - occupiedSeats;
+
+  if (loading) {
+    return <div className="flex justify-center items-center h-64">Loading seats...</div>;
+  }
+
+  const renderSeatGrid = (rows: any[], floorLabel: string) => (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold text-center">{floorLabel}</h3>
+      {rows.map((row) => (
+        <div key={row.row} className="space-y-2">
+          <div className="flex justify-between items-center">
+            <h4 className="font-medium text-gray-700">{row.label}</h4>
+            <span className="text-sm text-gray-500">Row {row.row}</span>
+          </div>
+          <div className="grid grid-cols-8 gap-2">
+            {Array.from({ length: row.seats }, (_, i) => {
+              const seatNumber = i + 1;
+              const seatId = `${row.row}-${seatNumber}`;
+              const status = getSeatStatus(seatId);
+              
+              return (
+                <button
+                  key={seatId}
+                  onClick={() => handleSeatClick(seatId)}
+                  disabled={status === 'occupied' || status === 'maintenance'}
+                  className={`
+                    w-16 h-16 rounded-lg border-2 text-xs font-medium
+                    flex flex-col items-center justify-center transition-colors
+                    ${getSeatColor(status)}
+                  `}
+                >
+                  <span className="font-bold">{seatNumber}</span>
+                  {status === 'occupied' && (
+                    <span className="text-[8px] leading-none">TAKEN</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <div className="space-y-6">
       {/* Status Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="flex items-center justify-center p-6">
             <div className="text-center">
@@ -98,51 +208,19 @@ const SeatArrangement = () => {
         <Card>
           <CardContent className="flex items-center justify-center p-6">
             <div className="text-center">
-              <div className="text-2xl font-bold text-red-600">{bookedSeats.size}</div>
+              <div className="text-2xl font-bold text-red-600">{occupiedSeats}</div>
               <div className="text-sm text-gray-600">Occupied</div>
             </div>
           </CardContent>
         </Card>
-        
-        <Card>
-          <CardContent className="flex items-center justify-center p-6">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{mySeat || 'None'}</div>
-              <div className="text-sm text-gray-600">My Seat</div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
-
-      {/* Current Seat Info */}
-      {mySeat && (
-        <Card className="bg-blue-50 border-blue-200">
-          <CardHeader>
-            <div className="flex items-center">
-              <User className="h-5 w-5 text-blue-600 mr-2" />
-              <CardTitle className="text-blue-900">Your Current Seat</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-lg font-semibold text-blue-900">Seat {mySeat}</p>
-                <p className="text-blue-700">
-                  Row {mySeat.charAt(0)}, Position {mySeat.split('-')[1]}
-                </p>
-              </div>
-              <Badge className="bg-blue-500 text-white">Your Seat</Badge>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Seat Map */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
             <Users className="h-5 w-5 mr-2" />
-            Seat Arrangement
+            Seat Arrangement - Two Floor Layout
           </CardTitle>
           <CardDescription>
             Click on an available seat to select and book it
@@ -160,44 +238,26 @@ const SeatArrangement = () => {
               <span className="text-sm">Occupied</span>
             </div>
             <div className="flex items-center">
-              <div className="w-4 h-4 bg-blue-500 border border-blue-600 rounded mr-2"></div>
-              <span className="text-sm">Your Seat</span>
-            </div>
-            <div className="flex items-center">
               <div className="w-4 h-4 bg-yellow-200 border border-yellow-400 rounded mr-2"></div>
               <span className="text-sm">Selected</span>
             </div>
+            <div className="flex items-center">
+              <div className="w-4 h-4 bg-orange-100 border border-orange-300 rounded mr-2"></div>
+              <span className="text-sm">Maintenance</span>
+            </div>
           </div>
 
-          {/* Seat Grid */}
-          <div className="space-y-6">
-            {seatRows.map((row) => (
-              <div key={row.row} className="space-y-2">
-                <h3 className="font-medium text-gray-700">{row.label}</h3>
-                <div className="flex flex-wrap gap-2">
-                  {Array.from({ length: row.seats }, (_, i) => {
-                    const seatNumber = i + 1;
-                    const seatId = `${row.row}-${seatNumber}`;
-                    const status = getSeatStatus(seatId);
-                    
-                    return (
-                      <button
-                        key={seatId}
-                        onClick={() => handleSeatClick(seatId)}
-                        disabled={status === 'booked' || status === 'my-seat'}
-                        className={`
-                          w-12 h-12 rounded-lg border-2 text-xs font-medium
-                          flex items-center justify-center transition-colors
-                          ${getSeatColor(status)}
-                        `}
-                      >
-                        {seatNumber}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+          {/* Two Floor Layout */}
+          <div className="grid md:grid-cols-2 gap-8">
+            {/* Lower Floor - Left Side */}
+            <div className="border-2 border-blue-200 p-4 rounded-lg bg-blue-50">
+              {renderSeatGrid(seatLayout.lowerFloor.leftSide, "Lower Floor - Left Side")}
+            </div>
+
+            {/* Upper Floor - Right Side */}
+            <div className="border-2 border-green-200 p-4 rounded-lg bg-green-50">
+              {renderSeatGrid(seatLayout.upperFloor.rightSide, "Upper Floor - Right Side")}
+            </div>
           </div>
 
           {/* Book Button */}
@@ -235,9 +295,9 @@ const SeatArrangement = () => {
             <div>
               <h4 className="font-medium text-green-700 mb-2">✅ Booking Guidelines</h4>
               <ul className="space-y-1 text-gray-600">
-                <li>• Seats can only be booked after fee payment</li>
-                <li>• Booking duration matches your payment period</li>
-                <li>• You can change seats once per month</li>
+                <li>• Seats can be booked anytime</li>
+                <li>• First come, first served basis</li>
+                <li>• You can change seats as needed</li>
                 <li>• Inform reception desk for any issues</li>
               </ul>
             </div>

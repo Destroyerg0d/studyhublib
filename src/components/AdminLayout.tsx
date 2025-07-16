@@ -1,7 +1,6 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/contexts/AuthContext";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   BookOpen,
@@ -15,16 +14,15 @@ import {
   Menu,
   X,
   Home,
+  FileText,
 } from "lucide-react";
 
 const AdminLayout = ({ children }: { children: React.ReactNode }) => {
-  const { profile, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleLogout = () => {
-    logout();
     navigate("/");
   };
 
@@ -35,6 +33,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
     { path: "/admin/timetable", icon: Calendar, label: "Timetable" },
     { path: "/admin/fees", icon: CreditCard, label: "Fees Management" },
     { path: "/admin/verification", icon: CheckCircle, label: "Verification" },
+    { path: "/admin/registrations", icon: FileText, label: "Registrations" },
   ];
 
   const isActive = (path: string, exact = false) => {
@@ -97,8 +96,8 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
               <Settings className="h-4 w-4 text-red-600 mr-2" />
               <span className="text-sm font-medium text-red-800">Admin User</span>
             </div>
-            <p className="text-sm font-medium">{profile?.name || 'Admin'}</p>
-            <p className="text-xs text-gray-600">{profile?.email}</p>
+            <p className="text-sm font-medium">Admin</p>
+            <p className="text-xs text-gray-600">admin@studyhub.com</p>
           </div>
           <Button
             variant="outline"
@@ -133,7 +132,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
             
             <div className="flex items-center space-x-3">
               <div className="hidden sm:block">
-                <p className="text-sm text-gray-600">Admin: {profile?.name || 'Admin'}</p>
+                <p className="text-sm text-gray-600">Admin: Admin</p>
               </div>
             </div>
           </div>
