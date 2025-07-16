@@ -15,6 +15,7 @@ import {
   Menu,
   X,
   Home,
+  FileText,
 } from "lucide-react";
 
 const AdminLayout = ({ children }: { children: React.ReactNode }) => {
@@ -31,6 +32,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   const menuItems = [
     { path: "/admin", icon: Home, label: "Dashboard", exact: true },
     { path: "/admin/users", icon: Users, label: "User Management" },
+    { path: "/admin/registrations", icon: FileText, label: "Registrations" },
     { path: "/admin/seats", icon: BarChart3, label: "Seat Management" },
     { path: "/admin/timetable", icon: Calendar, label: "Timetable" },
     { path: "/admin/fees", icon: CreditCard, label: "Fees Management" },
