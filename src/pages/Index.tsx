@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -116,20 +115,20 @@ const Index = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center">
-              <BookOpen className="h-8 w-8 text-red-600 mr-3" />
+              <BookOpen className="h-8 w-8 text-blue-600 mr-3" />
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">The Study Hub</h1>
                 <p className="text-sm text-gray-600">Premium Learning Environment</p>
               </div>
             </div>
             <nav className="hidden md:flex space-x-8">
-              <a href="#features" className="text-gray-700 hover:text-red-600 font-medium">Features</a>
-              <a href="#gallery" className="text-gray-700 hover:text-red-600 font-medium">Gallery</a>
-              <a href="#pricing" className="text-gray-700 hover:text-red-600 font-medium">Pricing</a>
-              <a href="#contact" className="text-gray-700 hover:text-red-600 font-medium">Contact</a>
+              <a href="#features" className="text-gray-700 hover:text-blue-600 font-medium">Features</a>
+              <a href="#gallery" className="text-gray-700 hover:text-blue-600 font-medium">Gallery</a>
+              <a href="#pricing" className="text-gray-700 hover:text-blue-600 font-medium">Pricing</a>
+              <a href="#contact" className="text-gray-700 hover:text-blue-600 font-medium">Contact</a>
             </nav>
             <Link to="/auth">
-              <Button className="bg-red-600 hover:bg-red-700">Get Started</Button>
+              <Button className="bg-blue-600 hover:bg-blue-700">Get Started</Button>
             </Link>
           </div>
         </div>
@@ -153,7 +152,7 @@ const Index = () => {
           <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-8 md:p-12 border border-white/10">
             <h2 className="text-4xl md:text-6xl font-bold mb-6 animate-fade-in text-white drop-shadow-2xl">
               Your Perfect Study
-              <span className="text-yellow-400 drop-shadow-2xl"> Environment</span>
+              <span className="text-blue-400 drop-shadow-2xl"> Environment</span>
             </h2>
             <p className="text-xl md:text-2xl mb-8 max-w-3xl mx-auto text-white/95 animate-fade-in drop-shadow-lg font-medium">
               Experience premium library facilities with 24/7 access, comfortable wooden seating, 
@@ -161,7 +160,7 @@ const Index = () => {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in">
               <Link to="/auth">
-                <Button size="lg" className="bg-yellow-500 hover:bg-yellow-600 text-black font-semibold text-lg px-8 py-4 shadow-xl">
+                <Button size="lg" className="bg-blue-500 hover:bg-blue-600 text-white font-semibold text-lg px-8 py-4 shadow-xl">
                   Book Your Seat Today
                 </Button>
               </Link>
@@ -179,7 +178,7 @@ const Index = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center">
             <div className="p-6">
-              <div className="text-4xl font-bold text-red-600 mb-2">{seats.length}</div>
+              <div className="text-4xl font-bold text-blue-600 mb-2">{seats.length}</div>
               <div className="text-gray-600">Total Seats</div>
             </div>
             <div className="p-6">
@@ -254,7 +253,7 @@ const Index = () => {
                 key={index}
                 onClick={() => setCurrentImageIndex(index)}
                 className={`relative h-24 rounded-lg overflow-hidden cursor-pointer transition-all duration-200 ${
-                  index === currentImageIndex ? 'ring-4 ring-red-500 scale-105' : 'hover:scale-105'
+                  index === currentImageIndex ? 'ring-4 ring-blue-500 scale-105' : 'hover:scale-105'
                 }`}
               >
                 <img 
@@ -279,7 +278,7 @@ const Index = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             <Card className="text-center hover:shadow-lg transition-shadow">
               <CardHeader>
-                <Clock className="h-12 w-12 text-red-600 mx-auto mb-4" />
+                <Clock className="h-12 w-12 text-blue-600 mx-auto mb-4" />
                 <CardTitle>24/7 Access</CardTitle>
               </CardHeader>
               <CardContent>
@@ -289,7 +288,7 @@ const Index = () => {
 
             <Card className="text-center hover:shadow-lg transition-shadow">
               <CardHeader>
-                <Wifi className="h-12 w-12 text-red-600 mx-auto mb-4" />
+                <Wifi className="h-12 w-12 text-blue-600 mx-auto mb-4" />
                 <CardTitle>High-Speed WiFi</CardTitle>
               </CardHeader>
               <CardContent>
@@ -299,7 +298,7 @@ const Index = () => {
 
             <Card className="text-center hover:shadow-lg transition-shadow">
               <CardHeader>
-                <Shield className="h-12 w-12 text-red-600 mx-auto mb-4" />
+                <Shield className="h-12 w-12 text-blue-600 mx-auto mb-4" />
                 <CardTitle>Secure Environment</CardTitle>
               </CardHeader>
               <CardContent>
@@ -309,7 +308,7 @@ const Index = () => {
 
             <Card className="text-center hover:shadow-lg transition-shadow">
               <CardHeader>
-                <Coffee className="h-12 w-12 text-red-600 mx-auto mb-4" />
+                <Coffee className="h-12 w-12 text-blue-600 mx-auto mb-4" />
                 <CardTitle>Seat-Side Ordering</CardTitle>
               </CardHeader>
               <CardContent>
@@ -319,7 +318,7 @@ const Index = () => {
 
             <Card className="text-center hover:shadow-lg transition-shadow">
               <CardHeader>
-                <Users className="h-12 w-12 text-red-600 mx-auto mb-4" />
+                <Users className="h-12 w-12 text-blue-600 mx-auto mb-4" />
                 <CardTitle>Community</CardTitle>
               </CardHeader>
               <CardContent>
@@ -329,7 +328,7 @@ const Index = () => {
 
             <Card className="text-center hover:shadow-lg transition-shadow">
               <CardHeader>
-                <BookOpen className="h-12 w-12 text-red-600 mx-auto mb-4" />
+                <BookOpen className="h-12 w-12 text-blue-600 mx-auto mb-4" />
                 <CardTitle>Self-Study Environment</CardTitle>
               </CardHeader>
               <CardContent>
@@ -353,12 +352,12 @@ const Index = () => {
               <Card key={plan.id} className="relative hover:shadow-xl transition-shadow">
                 {plan.type === '24/7' && (
                   <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                    <Badge className="bg-red-600 text-white px-4 py-1">Most Popular</Badge>
+                    <Badge className="bg-blue-600 text-white px-4 py-1">Most Popular</Badge>
                   </div>
                 )}
                 <CardHeader className="text-center">
                   <CardTitle className="text-2xl">{plan.name}</CardTitle>
-                  <div className="text-4xl font-bold text-red-600 my-4">
+                  <div className="text-4xl font-bold text-blue-600 my-4">
                     ₹{plan.price}
                     <span className="text-lg font-normal text-gray-500">/{plan.duration_months}mo</span>
                   </div>
@@ -378,7 +377,7 @@ const Index = () => {
                     ))}
                   </ul>
                   <Link to="/auth">
-                    <Button className="w-full bg-red-600 hover:bg-red-700">
+                    <Button className="w-full bg-blue-600 hover:bg-blue-700">
                       Choose Plan
                     </Button>
                   </Link>
@@ -519,21 +518,21 @@ const Index = () => {
               <h3 className="text-2xl font-bold text-gray-900 mb-6">Contact Information</h3>
               <div className="space-y-6">
                 <div className="flex items-start">
-                  <MapPin className="h-6 w-6 text-red-600 mr-4 mt-1" />
+                  <MapPin className="h-6 w-6 text-blue-600 mr-4 mt-1" />
                   <div>
                     <div className="font-semibold">Address</div>
                     <div className="text-gray-600">123 Study Street, Education District<br />Bangalore, Karnataka 560001</div>
                   </div>
                 </div>
                 <div className="flex items-center">
-                  <Phone className="h-6 w-6 text-red-600 mr-4" />
+                  <Phone className="h-6 w-6 text-blue-600 mr-4" />
                   <div>
                     <div className="font-semibold">Phone</div>
                     <div className="text-gray-600">+91 9876543210</div>
                   </div>
                 </div>
                 <div className="flex items-center">
-                  <Mail className="h-6 w-6 text-red-600 mr-4" />
+                  <Mail className="h-6 w-6 text-blue-600 mr-4" />
                   <div>
                     <div className="font-semibold">Email</div>
                     <div className="text-gray-600">info@thestudyhub.com</div>
@@ -561,7 +560,7 @@ const Index = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <div className="flex items-center mb-4">
-                <BookOpen className="h-8 w-8 text-red-600 mr-3" />
+                <BookOpen className="h-8 w-8 text-blue-600 mr-3" />
                 <div>
                   <h3 className="text-xl font-bold">The Study Hub</h3>
                   <p className="text-sm text-gray-400">Premium Learning Environment</p>
