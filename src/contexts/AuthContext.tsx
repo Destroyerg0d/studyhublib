@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -39,7 +40,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const fetchProfile = async (userId: string) => {
     try {
       console.log('Fetching profile for user:', userId);
-      const { data: profileData, error } = await (supabase as any)
+      const { data: profileData, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
@@ -69,7 +70,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         verified: user.email === 'admin@studyhub.com' || user.email === 'hossenbiddoth@gmail.com'
       };
 
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('profiles')
         .insert(profileData);
 
@@ -87,57 +88,72 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
+    let mounted = true;
+
+    const initializeAuth = async () => {
+      try {
+        // Get current session
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        console.log('Initial session check:', currentSession?.user?.email);
+        
+        if (currentSession?.user && mounted) {
+          setSession(currentSession);
+          setUser(currentSession.user);
+          
+          // Fetch or create profile
+          let profileData = await fetchProfile(currentSession.user.id);
+          if (!profileData) {
+            profileData = await createProfile(currentSession.user);
+          }
+          
+          if (profileData && mounted) {
+            setProfile(profileData as Profile);
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state changed:', event, session?.user?.email);
+        
+        if (!mounted) return;
+
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fetch user profile with a setTimeout to prevent potential deadlocks
-          setTimeout(async () => {
-            let profileData = await fetchProfile(session.user.id);
-            
-            // If no profile exists, create one
-            if (!profileData) {
-              console.log('No profile found, creating new profile');
-              profileData = await createProfile(session.user);
-            }
-            
-            if (profileData) {
-              console.log('Setting profile:', profileData);
-              setProfile(profileData);
-            } else {
-              // Create a default profile if database operations fail
-              const defaultProfile = {
-                id: session.user.id,
-                email: session.user.email || '',
-                name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
-                role: (session.user.email === 'admin@studyhub.com' || session.user.email === 'hossenbiddoth@gmail.com') ? 'admin' : 'student',
-                verified: session.user.email === 'admin@studyhub.com' || session.user.email === 'hossenbiddoth@gmail.com'
-              } as Profile;
-              console.log('Setting default profile:', defaultProfile);
-              setProfile(defaultProfile);
-            }
-            setIsLoading(false);
-          }, 100);
+          // Fetch or create profile
+          let profileData = await fetchProfile(session.user.id);
+          if (!profileData) {
+            profileData = await createProfile(session.user);
+          }
+          
+          if (profileData && mounted) {
+            setProfile(profileData as Profile);
+          }
         } else {
           setProfile(null);
-          setIsLoading(false);
         }
+        
+        setIsLoading(false);
       }
     );
 
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session check:', session?.user?.email);
-      if (!session) {
-        setIsLoading(false);
-      }
-    });
+    // Initialize auth
+    initializeAuth();
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {

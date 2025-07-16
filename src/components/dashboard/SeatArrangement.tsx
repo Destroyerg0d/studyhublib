@@ -4,21 +4,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Users, CheckCircle, X, User } from "lucide-react";
+import { Users, CheckCircle, User, Building } from "lucide-react";
 
 const SeatArrangement = () => {
   const [selectedSeat, setSelectedSeat] = useState<string | null>(null);
-  const [bookedSeats, setBookedSeats] = useState<Set<string>>(new Set(['A-3', 'A-5', 'B-2', 'B-4', 'C-1', 'C-3', 'D-2', 'D-6']));
-  const [mySeat, setMySeat] = useState<string | null>('A-15'); // User's current seat
+  const [bookedSeats, setBookedSeats] = useState<Set<string>>(new Set([
+    'L-1', 'L-2', 'L-3', 'L-4', 'L-5', 'L-6', 'L-8', 'L-10', 'L-11', 'L-13', 'L-14', 'L-16', 'L-17', 'L-18',
+    'U-19', 'U-20', 'U-21', 'U-23', 'U-28', 'U-30', 'U-31', 'U-32', 'U-33', 'U-34', 'U-35', 'U-36', 'U-37', 'U-38', 'U-39', 'U-40'
+  ]));
+  const [mySeat, setMySeat] = useState<string | null>('L-7');
   const { toast } = useToast();
 
-  // Define seat arrangement: 4 rows with different column counts
-  const seatRows = [
-    { row: 'A', seats: 5, label: 'Row 1' },
-    { row: 'B', seats: 5, label: 'Row 2' },
-    { row: 'C', seats: 5, label: 'Row 3' },
-    { row: 'D', seats: 6, label: 'Row 4' },
-  ];
+  // Define seat arrangement based on your Excel sheet: Lower Floor (18 seats) + Upper Floor (18 seats) = 36 total
+  const lowerFloorSeats = Array.from({ length: 18 }, (_, i) => `L-${i + 1}`);
+  const upperFloorSeats = Array.from({ length: 18 }, (_, i) => `U-${i + 19}`);
 
   const handleSeatClick = (seatId: string) => {
     if (bookedSeats.has(seatId) || seatId === mySeat) return;
@@ -35,7 +34,6 @@ const SeatArrangement = () => {
       return;
     }
 
-    // Simulate booking
     setBookedSeats(prev => new Set([...prev, selectedSeat]));
     if (mySeat) {
       setBookedSeats(prev => {
@@ -70,7 +68,7 @@ const SeatArrangement = () => {
     }
   };
 
-  const totalSeats = seatRows.reduce((sum, row) => sum + row.seats, 0);
+  const totalSeats = 36;
   const availableSeats = totalSeats - bookedSeats.size;
 
   return (
@@ -128,7 +126,7 @@ const SeatArrangement = () => {
               <div>
                 <p className="text-lg font-semibold text-blue-900">Seat {mySeat}</p>
                 <p className="text-blue-700">
-                  Row {mySeat.charAt(0)}, Position {mySeat.split('-')[1]}
+                  {mySeat.startsWith('L') ? 'Lower Floor' : 'Upper Floor'}
                 </p>
               </div>
               <Badge className="bg-blue-500 text-white">Your Seat</Badge>
@@ -141,8 +139,8 @@ const SeatArrangement = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
-            <Users className="h-5 w-5 mr-2" />
-            Seat Arrangement
+            <Building className="h-5 w-5 mr-2" />
+            Seat Arrangement (36 Seats - 2 Floors)
           </CardTitle>
           <CardDescription>
             Click on an available seat to select and book it
@@ -169,35 +167,64 @@ const SeatArrangement = () => {
             </div>
           </div>
 
-          {/* Seat Grid */}
+          {/* Lower Floor */}
           <div className="space-y-6">
-            {seatRows.map((row) => (
-              <div key={row.row} className="space-y-2">
-                <h3 className="font-medium text-gray-700">{row.label}</h3>
-                <div className="flex flex-wrap gap-2">
-                  {Array.from({ length: row.seats }, (_, i) => {
-                    const seatNumber = i + 1;
-                    const seatId = `${row.row}-${seatNumber}`;
-                    const status = getSeatStatus(seatId);
-                    
-                    return (
-                      <button
-                        key={seatId}
-                        onClick={() => handleSeatClick(seatId)}
-                        disabled={status === 'booked' || status === 'my-seat'}
-                        className={`
-                          w-12 h-12 rounded-lg border-2 text-xs font-medium
-                          flex items-center justify-center transition-colors
-                          ${getSeatColor(status)}
-                        `}
-                      >
-                        {seatNumber}
-                      </button>
-                    );
-                  })}
-                </div>
+            <div className="space-y-2">
+              <h3 className="font-medium text-gray-700 flex items-center">
+                <Building className="h-4 w-4 mr-2" />
+                Lower Floor (Seats 1-18)
+              </h3>
+              <div className="grid grid-cols-6 gap-2">
+                {lowerFloorSeats.map((seatId) => {
+                  const status = getSeatStatus(seatId);
+                  const seatNumber = seatId.split('-')[1];
+                  
+                  return (
+                    <button
+                      key={seatId}
+                      onClick={() => handleSeatClick(seatId)}
+                      disabled={status === 'booked' || status === 'my-seat'}
+                      className={`
+                        w-12 h-12 rounded-lg border-2 text-xs font-medium
+                        flex items-center justify-center transition-colors
+                        ${getSeatColor(status)}
+                      `}
+                    >
+                      {seatNumber}
+                    </button>
+                  );
+                })}
               </div>
-            ))}
+            </div>
+
+            {/* Upper Floor */}
+            <div className="space-y-2">
+              <h3 className="font-medium text-gray-700 flex items-center">
+                <Building className="h-4 w-4 mr-2" />
+                Upper Floor (Seats 19-36)
+              </h3>
+              <div className="grid grid-cols-6 gap-2">
+                {upperFloorSeats.map((seatId) => {
+                  const status = getSeatStatus(seatId);
+                  const seatNumber = seatId.split('-')[1];
+                  
+                  return (
+                    <button
+                      key={seatId}
+                      onClick={() => handleSeatClick(seatId)}
+                      disabled={status === 'booked' || status === 'my-seat'}
+                      className={`
+                        w-12 h-12 rounded-lg border-2 text-xs font-medium
+                        flex items-center justify-center transition-colors
+                        ${getSeatColor(status)}
+                      `}
+                    >
+                      {seatNumber}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           {/* Book Button */}
@@ -207,7 +234,7 @@ const SeatArrangement = () => {
                 <div>
                   <p className="font-medium">Selected Seat: {selectedSeat}</p>
                   <p className="text-sm text-gray-600">
-                    Row {selectedSeat.charAt(0)}, Position {selectedSeat.split('-')[1]}
+                    {selectedSeat.startsWith('L') ? 'Lower Floor' : 'Upper Floor'}
                   </p>
                 </div>
                 <div className="space-x-2">
@@ -228,27 +255,42 @@ const SeatArrangement = () => {
       {/* Booking Rules */}
       <Card>
         <CardHeader>
-          <CardTitle>Seat Booking Rules</CardTitle>
+          <CardTitle>Current Fees Structure</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid md:grid-cols-2 gap-4 text-sm">
+          <div className="grid md:grid-cols-2 gap-6">
             <div>
-              <h4 className="font-medium text-green-700 mb-2">✅ Booking Guidelines</h4>
-              <ul className="space-y-1 text-gray-600">
-                <li>• Seats can only be booked after fee payment</li>
-                <li>• Booking duration matches your payment period</li>
-                <li>• You can change seats once per month</li>
-                <li>• Inform reception desk for any issues</li>
-              </ul>
+              <h4 className="font-medium text-blue-700 mb-3">📅 Day Shifts</h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between p-2 bg-blue-50 rounded">
+                  <span>Full Day (8AM - 10PM)</span>
+                  <span className="font-semibold">₹1,000</span>
+                </div>
+                <div className="flex justify-between p-2 bg-green-50 rounded">
+                  <span>Morning (8AM - 3PM)</span>
+                  <span className="font-semibold">₹600</span>
+                </div>
+                <div className="flex justify-between p-2 bg-orange-50 rounded">
+                  <span>Evening (3PM - 10PM)</span>
+                  <span className="font-semibold">₹600</span>
+                </div>
+              </div>
             </div>
             <div>
-              <h4 className="font-medium text-red-700 mb-2">❌ Restrictions</h4>
-              <ul className="space-y-1 text-gray-600">
-                <li>• Cannot book multiple seats simultaneously</li>
-                <li>• Seat sharing is not allowed</li>
-                <li>• Late arrivals may lose seat for that day</li>
-                <li>• No reserving seats for others</li>
-              </ul>
+              <h4 className="font-medium text-purple-700 mb-3">🌙 Extended Shifts</h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between p-2 bg-purple-50 rounded">
+                  <span>24 Hours (8AM - 8AM)</span>
+                  <span className="font-semibold">₹2,000</span>
+                </div>
+                <div className="flex justify-between p-2 bg-indigo-50 rounded">
+                  <span>Night Shift (10PM - 6AM)</span>
+                  <span className="font-semibold">₹1,200</span>
+                </div>
+              </div>
+              <div className="mt-4 p-3 bg-gray-50 rounded text-xs text-gray-600">
+                <p><strong>Note:</strong> Full Shift allows 2 people to share one seat (Morning + Evening users)</p>
+              </div>
             </div>
           </div>
         </CardContent>
