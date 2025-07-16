@@ -1,7 +1,6 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/contexts/AuthContext";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   BookOpen,
@@ -19,13 +18,11 @@ import {
 } from "lucide-react";
 
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
-  const { profile, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleLogout = () => {
-    logout();
     navigate("/");
   };
 
@@ -96,13 +93,11 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 
         <div className="absolute bottom-4 left-4 right-4">
           <div className="bg-gray-100 rounded-lg p-3 mb-4">
-            <p className="text-sm font-medium">{profile?.name || 'User'}</p>
-            <p className="text-xs text-gray-600">{profile?.email}</p>
+            <p className="text-sm font-medium">Student User</p>
+            <p className="text-xs text-gray-600">student@studyhub.com</p>
             <div className="flex items-center mt-2">
-              <div className={`w-2 h-2 rounded-full mr-2 ${profile?.verified ? 'bg-green-500' : 'bg-yellow-500'}`} />
-              <span className="text-xs">
-                {profile?.verified ? 'Verified' : 'Pending Verification'}
-              </span>
+              <div className="w-2 h-2 rounded-full mr-2 bg-green-500" />
+              <span className="text-xs">Verified</span>
             </div>
           </div>
           <Button
@@ -137,15 +132,8 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
             </div>
             
             <div className="flex items-center space-x-3">
-              {!profile?.verified && (
-                <Link to="/dashboard/verification">
-                  <Button size="sm" variant="outline" className="text-yellow-600 border-yellow-600">
-                    Complete Verification
-                  </Button>
-                </Link>
-              )}
               <div className="hidden sm:block">
-                <p className="text-sm text-gray-600">Welcome, {profile?.name || 'User'}</p>
+                <p className="text-sm text-gray-600">Welcome, Student User</p>
               </div>
             </div>
           </div>
