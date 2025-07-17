@@ -1,7 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { ArrowRight, MapPin, Phone, Mail } from "lucide-react";
+import { ArrowRight, MapPin, Phone, Mail, ExternalLink } from "lucide-react";
 
 const CTASection = () => {
   return (
@@ -28,12 +28,29 @@ const CTASection = () => {
           </div>
         </div>
         
-        <Link to="/auth">
-          <Button size="lg" className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold text-xl px-12 py-6 hover-scale">
-            Join The Study Hub Today
-            <ArrowRight className="ml-3 h-6 w-6" />
-          </Button>
-        </Link>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <Link to="/auth">
+            <Button size="lg" className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold text-xl px-12 py-6 hover-scale">
+              Join The Study Hub Today
+              <ArrowRight className="ml-3 h-6 w-6" />
+            </Button>
+          </Link>
+          
+          <a 
+            href="https://maps.app.goo.gl/Yz53DfNsn4XHgLGu5" 
+            target="_blank" 
+            rel="noopener noreferrer"
+          >
+            <Button 
+              size="lg" 
+              variant="outline" 
+              className="bg-transparent border-2 border-white text-white hover:bg-white hover:text-blue-600 font-bold text-xl px-12 py-6 hover-scale transition-all duration-300"
+            >
+              Visit Now
+              <ExternalLink className="ml-3 h-6 w-6" />
+            </Button>
+          </a>
+        </div>
       </div>
     </section>
   );

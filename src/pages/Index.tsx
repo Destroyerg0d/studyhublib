@@ -53,8 +53,8 @@ const Index = () => {
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-3 gap-8 mb-8">
-            <div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
+            <div className="lg:col-span-1">
               <div className="flex items-center mb-4">
                 <BookOpen className="h-6 w-6 mr-2" />
                 <span className="text-lg font-semibold">The Study Hub</span>
@@ -83,6 +83,21 @@ const Index = () => {
                 <p>📞 +91 8595300308</p>
                 <p>✉️ thestudyhublib@gmail.com</p>
                 <p>🌐 thestudyhublib.site</p>
+              </div>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Find Us</h3>
+              <div className="w-full h-48 rounded-lg overflow-hidden">
+                <iframe 
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3502.2122247060083!2d77.34289137617746!3d28.623400884494025!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x390ce5e64d90565b%3A0x4c331538e2cb7ca0!2sThe%20Study%20Hub%20-%20library!5e0!3m2!1sen!2sin!4v1752770511893!5m2!1sen!2sin" 
+                  width="100%" 
+                  height="100%" 
+                  style={{ border: 0 }} 
+                  allowFullScreen
+                  loading="lazy" 
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title="The Study Hub Location"
+                />
               </div>
             </div>
           </div>
