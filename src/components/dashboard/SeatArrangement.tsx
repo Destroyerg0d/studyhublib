@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -5,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, CheckCircle, User, Building, Building2 } from "lucide-react";
+import { Users, CheckCircle, User, Building, Building2, Lock, AlertCircle } from "lucide-react";
 
 interface Seat {
   id: string;
@@ -33,6 +34,8 @@ interface Subscription {
   user_id: string;
   plan_id: string;
   status: string;
+  start_date: string;
+  end_date: string;
   plans: {
     name: string;
     type: string;
@@ -46,6 +49,7 @@ const SeatArrangement = () => {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [userSeat, setUserSeat] = useState<number | null>(null);
+  const [userSubscription, setUserSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -77,6 +81,8 @@ const SeatArrangement = () => {
           user_id,
           plan_id,
           status,
+          start_date,
+          end_date,
           plans (
             name,
             type
@@ -97,6 +103,10 @@ const SeatArrangement = () => {
       // Find user's current seat
       const currentUserSeat = seatsData.data?.find(seat => seat.assigned_user_id === user?.id);
       setUserSeat(currentUserSeat?.seat_number || null);
+
+      // Find user's active subscription
+      const currentUserSubscription = subscriptionsData.data?.find(sub => sub.user_id === user?.id);
+      setUserSubscription(currentUserSubscription || null);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
@@ -126,9 +136,73 @@ const SeatArrangement = () => {
     };
   }, [user?.id]);
 
-  const handleSeatClick = (seatNumber: number) => {
+  const canSelectSeat = (seatNumber: number) => {
+    if (!userSubscription) return false;
+    
     const seat = seats.find(s => s.seat_number === seatNumber);
-    if (!seat || seat.status === 'occupied' || seatNumber === userSeat) return;
+    if (!seat || seat.status === 'occupied' || seatNumber === userSeat) return false;
+
+    // Check if current time allows seat selection based on user's plan
+    const now = new Date();
+    const currentHour = now.getHours();
+    const planType = userSubscription.plans.type.toLowerCase();
+
+    // Check subscription validity
+    const endDate = new Date(userSubscription.end_date);
+    if (endDate < now) return false;
+
+    // Time-based restrictions based on plan type
+    switch (planType) {
+      case 'morning':
+        return currentHour >= 8 && currentHour < 14; // 8 AM - 2 PM
+      case 'evening':
+        return currentHour >= 14 && currentHour < 20; // 2 PM - 8 PM
+      case 'full shift':
+        return currentHour >= 8 && currentHour < 20; // 8 AM - 8 PM
+      case 'full day':
+        return true; // 24/7 access
+      default:
+        return false;
+    }
+  };
+
+  const handleSeatClick = (seatNumber: number) => {
+    if (!userSubscription) {
+      toast({
+        title: "No Active Plan",
+        description: "Please purchase a plan first to book a seat.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!canSelectSeat(seatNumber)) {
+      const planType = userSubscription.plans.type.toLowerCase();
+      let timeSlot = "";
+      
+      switch (planType) {
+        case 'morning':
+          timeSlot = "8:00 AM - 2:00 PM";
+          break;
+        case 'evening':
+          timeSlot = "2:00 PM - 8:00 PM";
+          break;
+        case 'full shift':
+          timeSlot = "8:00 AM - 8:00 PM";
+          break;
+        case 'full day':
+          timeSlot = "24/7";
+          break;
+      }
+
+      toast({
+        title: "Seat Not Available",
+        description: `This seat can only be selected during your plan's time slot: ${timeSlot}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSelectedSeat(selectedSeat === seatNumber ? null : seatNumber);
   };
 
@@ -137,6 +211,15 @@ const SeatArrangement = () => {
       toast({
         title: "Please select a seat",
         description: "Choose an available seat to book.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!userSubscription) {
+      toast({
+        title: "No Active Plan",
+        description: "Please purchase a plan first to book a seat.",
         variant: "destructive",
       });
       return;
@@ -212,12 +295,14 @@ const SeatArrangement = () => {
     if (seatNumber === userSeat) return 'my-seat';
     if (!seat || seat.status === 'occupied') return 'booked';
     if (selectedSeat === seatNumber) return 'selected';
+    if (!canSelectSeat(seatNumber)) return 'restricted';
     return 'available';
   };
 
   const getSeatColor = (status: string, seatNumber?: number) => {
     if (status === 'my-seat') return 'bg-blue-500 text-white border-blue-600';
     if (status === 'selected') return 'bg-yellow-200 text-yellow-900 border-yellow-400';
+    if (status === 'restricted') return 'bg-gray-200 text-gray-500 border-gray-400 cursor-not-allowed opacity-60';
     if (status === 'available') return 'bg-green-100 text-green-800 border-green-300 hover:bg-green-200 cursor-pointer';
     
     // For occupied seats, get plan color
@@ -235,18 +320,22 @@ const SeatArrangement = () => {
     const seatInfo = getSeatInfo(seatNumber);
     const status = getSeatStatus(seatNumber);
     const seatColor = getSeatColor(status, seatNumber);
+    const isRestricted = status === 'restricted';
     
     return (
       <button
         key={seatNumber}
         onClick={() => handleSeatClick(seatNumber)}
-        disabled={status === 'booked' || status === 'my-seat'}
+        disabled={status === 'booked' || status === 'my-seat' || isRestricted}
         className={`
           w-12 h-12 rounded-lg border-2 text-xs font-medium
-          flex flex-col items-center justify-center transition-colors
+          flex flex-col items-center justify-center transition-colors relative
           ${seatColor}
         `}
       >
+        {isRestricted && (
+          <Lock className="absolute top-0 right-0 h-3 w-3 text-gray-400 transform translate-x-1 -translate-y-1" />
+        )}
         <span className="font-bold">{seatNumber}</span>
         {seatInfo?.user && (
           <span className="text-[8px] leading-none truncate w-full text-center">
@@ -271,6 +360,59 @@ const SeatArrangement = () => {
 
   return (
     <div className="space-y-6">
+      {/* User Plan Status */}
+      {userSubscription ? (
+        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <CheckCircle className="h-6 w-6 text-blue-600 mr-3" />
+                <div>
+                  <CardTitle className="text-blue-900">Active Plan: {userSubscription.plans.name}</CardTitle>
+                  <CardDescription className="text-blue-700">
+                    Plan Type: {userSubscription.plans.type} | Valid until: {new Date(userSubscription.end_date).toLocaleDateString()}
+                  </CardDescription>
+                </div>
+              </div>
+              <Badge className="bg-blue-500 text-white">Active</Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="p-3 bg-white rounded-lg border">
+                <p className="text-sm font-medium text-gray-700">Seat Selection Available</p>
+                <p className="text-xs text-gray-600">
+                  {userSubscription.plans.type.toLowerCase() === 'morning' && 'During 8:00 AM - 2:00 PM'}
+                  {userSubscription.plans.type.toLowerCase() === 'evening' && 'During 2:00 PM - 8:00 PM'}
+                  {userSubscription.plans.type.toLowerCase() === 'full shift' && 'During 8:00 AM - 8:00 PM'}
+                  {userSubscription.plans.type.toLowerCase() === 'full day' && '24/7 Access'}
+                </p>
+              </div>
+              {userSeat && (
+                <div className="p-3 bg-white rounded-lg border">
+                  <p className="text-sm font-medium text-gray-700">Your Current Seat</p>
+                  <p className="text-lg font-bold text-blue-600">Seat {userSeat}</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200">
+          <CardHeader>
+            <div className="flex items-center">
+              <AlertCircle className="h-6 w-6 text-yellow-600 mr-3" />
+              <div>
+                <CardTitle className="text-yellow-900">No Active Plan</CardTitle>
+                <CardDescription className="text-yellow-700">
+                  You need to purchase a plan to book seats. Visit the Fees & Payment section to get started.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+        </Card>
+      )}
+
       {/* Status Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
@@ -347,27 +489,6 @@ const SeatArrangement = () => {
         </CardContent>
       </Card>
 
-      {/* Current Seat Info */}
-      {userSeat && (
-        <Card className="bg-blue-50 border-blue-200">
-          <CardHeader>
-            <div className="flex items-center">
-              <User className="h-5 w-5 text-blue-600 mr-2" />
-              <CardTitle className="text-blue-900">Your Current Seat</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-lg font-semibold text-blue-900">Seat {userSeat}</p>
-                <p className="text-blue-700">Your assigned seat</p>
-              </div>
-              <Badge className="bg-blue-500 text-white">Your Seat</Badge>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* First Floor */}
       <Card>
         <CardHeader>
@@ -393,6 +514,12 @@ const SeatArrangement = () => {
             <div className="flex items-center">
               <div className="w-4 h-4 bg-yellow-200 border border-yellow-400 rounded mr-2"></div>
               <span className="text-sm">Selected</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-4 h-4 bg-gray-200 border border-gray-400 rounded mr-2 opacity-60 relative">
+                <Lock className="absolute -top-1 -right-1 h-2 w-2 text-gray-400" />
+              </div>
+              <span className="text-sm">Restricted (Plan Required)</span>
             </div>
             <div className="flex items-center">
               <div className="w-4 h-4 bg-orange-100 border border-orange-300 rounded mr-2"></div>
