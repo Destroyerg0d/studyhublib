@@ -4,13 +4,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Coffee, ShoppingCart, Plus, Minus, Utensils } from "lucide-react";
+import { Coffee, ShoppingCart, Plus, Minus, Utensils, Clock, Truck, Star } from "lucide-react";
 
 interface MenuItem {
   id: string;
   name: string;
   price: number;
   category: string;
+  description?: string;
+  image?: string;
+  popular?: boolean;
 }
 
 const Canteen = () => {
@@ -19,26 +22,26 @@ const Canteen = () => {
 
   const menuItems: MenuItem[] = [
     // Hot Beverages
-    { id: "hot-coffee", name: "HOT COFFEE", price: 20, category: "Hot Beverages" },
-    { id: "tea", name: "TEA", price: 10, category: "Hot Beverages" },
+    { id: "hot-coffee", name: "Hot Coffee", price: 20, category: "Hot Beverages", description: "Freshly brewed aromatic coffee", popular: true },
+    { id: "tea", name: "Tea", price: 10, category: "Hot Beverages", description: "Classic Indian chai" },
     
     // Cold Beverages
-    { id: "cold-coffee", name: "COLD COFFEE", price: 50, category: "Cold Beverages" },
-    { id: "flavour-cold-coffee", name: "FLAVOUR COLD COFFEE", price: 60, category: "Cold Beverages" },
+    { id: "cold-coffee", name: "Cold Coffee", price: 50, category: "Cold Beverages", description: "Refreshing iced coffee", popular: true },
+    { id: "flavour-cold-coffee", name: "Flavoured Cold Coffee", price: 60, category: "Cold Beverages", description: "Vanilla, caramel or chocolate" },
     
     // Shakes
-    { id: "banana-shake", name: "BANANA SHAKE", price: 50, category: "Shakes" },
-    { id: "oreo-shake", name: "OREO SHAKE", price: 50, category: "Shakes" },
-    { id: "kitkat-shake", name: "KITKAT SHAKE", price: 50, category: "Shakes" },
+    { id: "banana-shake", name: "Banana Shake", price: 50, category: "Shakes", description: "Creamy banana milkshake" },
+    { id: "oreo-shake", name: "Oreo Shake", price: 50, category: "Shakes", description: "Cookies & cream delight", popular: true },
+    { id: "kitkat-shake", name: "KitKat Shake", price: 50, category: "Shakes", description: "Chocolate wafer shake" },
     
     // Food
-    { id: "maggie", name: "MAGGIE", price: 40, category: "Food" },
-    { id: "veg-maggie", name: "VEG MAGGIE", price: 50, category: "Food" },
-    { id: "paneer-maggie", name: "PANEER MAGGIE", price: 60, category: "Food" },
+    { id: "maggie", name: "Maggie", price: 40, category: "Food", description: "Classic instant noodles" },
+    { id: "veg-maggie", name: "Veg Maggie", price: 50, category: "Food", description: "Loaded with fresh vegetables", popular: true },
+    { id: "paneer-maggie", name: "Paneer Maggie", price: 60, category: "Food", description: "Rich paneer and spices" },
     
     // Protein Shakes
-    { id: "protein-milk", name: "27G PROTEIN SHAKE CHOCOLATE WITH MILK", price: 100, category: "Protein Shakes" },
-    { id: "protein-water", name: "27G PROTEIN SHAKE CHOCOLATE WITH WATER", price: 80, category: "Protein Shakes" },
+    { id: "protein-milk", name: "Protein Shake (Milk)", price: 100, category: "Protein Shakes", description: "27g protein chocolate with milk" },
+    { id: "protein-water", name: "Protein Shake (Water)", price: 80, category: "Protein Shakes", description: "27g protein chocolate with water" },
   ];
 
   const categories = ["Hot Beverages", "Cold Beverages", "Shakes", "Food", "Protein Shakes"];
@@ -95,140 +98,204 @@ const Canteen = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <Card className="bg-gradient-to-r from-orange-50 to-red-50 border-orange-200">
-        <CardHeader className="text-center">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-yellow-50">
+      <div className="max-w-7xl mx-auto px-4 py-6 space-y-8">
+        {/* Hero Section */}
+        <div className="text-center bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-2xl p-8 shadow-xl">
           <div className="flex justify-center mb-4">
-            <div className="p-4 bg-orange-100 rounded-full">
-              <Coffee className="h-12 w-12 text-orange-600" />
+            <div className="p-4 bg-white/20 rounded-full backdrop-blur-sm">
+              <Coffee className="h-16 w-16" />
             </div>
           </div>
-          <CardTitle className="text-2xl text-orange-900">Study Hub Canteen</CardTitle>
-          <CardDescription className="text-orange-700">
-            Fresh food and beverages delivered to your seat
-          </CardDescription>
-        </CardHeader>
-      </Card>
+          <h1 className="text-4xl font-bold mb-2">Study Hub Canteen</h1>
+          <p className="text-xl opacity-90">Fresh food & beverages delivered to your seat</p>
+          <div className="flex items-center justify-center mt-4 space-x-6 text-sm">
+            <div className="flex items-center">
+              <Clock className="h-4 w-4 mr-1" />
+              <span>10-15 min delivery</span>
+            </div>
+            <div className="flex items-center">
+              <Truck className="h-4 w-4 mr-1" />
+              <span>Free delivery</span>
+            </div>
+          </div>
+        </div>
 
-      {/* Cart Summary */}
-      {getTotalItems() > 0 && (
-        <Card className="bg-green-50 border-green-200">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span className="flex items-center">
-                <ShoppingCart className="h-5 w-5 mr-2" />
-                Your Cart
-              </span>
-              <Badge className="bg-green-500 text-white">
-                {getTotalItems()} items
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 mb-4">
-              {Object.entries(cart).map(([itemId, quantity]) => {
-                const item = menuItems.find(item => item.id === itemId);
-                if (!item) return null;
-                return (
-                  <div key={itemId} className="flex justify-between items-center">
-                    <span className="text-sm">{item.name}</span>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm">₹{item.price} x {quantity}</span>
-                      <Button size="sm" variant="outline" onClick={() => removeFromCart(itemId)}>
-                        <Minus className="h-3 w-3" />
-                      </Button>
+        {/* Cart Summary - Sticky */}
+        {getTotalItems() > 0 && (
+          <div className="sticky top-4 z-10">
+            <Card className="bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-xl border-0">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <ShoppingCart className="h-6 w-6" />
+                    <div>
+                      <h3 className="font-semibold text-lg">Your Cart</h3>
+                      <p className="text-green-100">{getTotalItems()} items • ₹{getTotalPrice()}</p>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-            <div className="flex justify-between items-center pt-4 border-t">
-              <span className="text-lg font-semibold">Total: ₹{getTotalPrice()}</span>
-              <Button onClick={placeOrder} className="bg-green-600 hover:bg-green-700">
-                Place Order
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Menu */}
-      <div className="space-y-6">
-        {categories.map(category => {
-          const categoryItems = menuItems.filter(item => item.category === category);
-          return (
-            <Card key={category}>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Utensils className="h-5 w-5 mr-2 text-blue-600" />
-                  {category}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {categoryItems.map(item => (
-                    <div key={item.id} className="p-4 border rounded-lg hover:shadow-md transition-shadow">
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="flex-1">
-                          <h4 className="font-medium text-gray-900 leading-tight">{item.name}</h4>
-                          <p className="text-xl font-bold text-green-600 mt-1">₹{item.price}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        {cart[item.id] ? (
-                          <div className="flex items-center space-x-2">
-                            <Button size="sm" variant="outline" onClick={() => removeFromCart(item.id)}>
-                              <Minus className="h-3 w-3" />
-                            </Button>
-                            <span className="font-medium">{cart[item.id]}</span>
-                            <Button size="sm" variant="outline" onClick={() => addToCart(item.id)}>
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <Button size="sm" onClick={() => addToCart(item.id)}>
-                            <Plus className="h-4 w-4 mr-1" />
-                            Add
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                  <Button 
+                    onClick={placeOrder} 
+                    className="bg-white text-green-600 hover:bg-green-50 font-bold px-8 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+                  >
+                    Place Order
+                  </Button>
                 </div>
               </CardContent>
             </Card>
-          );
-        })}
-      </div>
-
-      {/* Service Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Delivery Information</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <h4 className="font-medium text-blue-700 mb-2">🚀 Quick Service</h4>
-              <ul className="space-y-1 text-sm text-gray-600">
-                <li>• Orders delivered directly to your seat</li>
-                <li>• Average delivery time: 10-15 minutes</li>
-                <li>• Fresh preparation for every order</li>
-                <li>• Digital payment accepted</li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-medium text-green-700 mb-2">⏰ Service Hours</h4>
-              <ul className="space-y-1 text-sm text-gray-600">
-                <li>• Monday to Sunday: 8:00 AM - 10:00 PM</li>
-                <li>• Special night service: 10:00 PM - 6:00 AM</li>
-                <li>• Hot beverages available 24/7</li>
-                <li>• Fresh food prepared daily</li>
-              </ul>
-            </div>
           </div>
-        </CardContent>
-      </Card>
+        )}
+
+        {/* Menu Categories */}
+        <div className="space-y-8">
+          {categories.map(category => {
+            const categoryItems = menuItems.filter(item => item.category === category);
+            const categoryIcons = {
+              "Hot Beverages": "☕",
+              "Cold Beverages": "🥤",
+              "Shakes": "🥤",
+              "Food": "🍜",
+              "Protein Shakes": "💪"
+            };
+
+            return (
+              <Card key={category} className="shadow-lg border-0 overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
+                  <CardTitle className="flex items-center text-2xl text-gray-800">
+                    <span className="text-3xl mr-3">{categoryIcons[category as keyof typeof categoryIcons]}</span>
+                    {category}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {categoryItems.map(item => (
+                      <div key={item.id} className="group relative bg-white rounded-xl p-6 shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-orange-200">
+                        {item.popular && (
+                          <div className="absolute -top-2 -right-2">
+                            <Badge className="bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-medium flex items-center">
+                              <Star className="h-3 w-3 mr-1" />
+                              Popular
+                            </Badge>
+                          </div>
+                        )}
+                        
+                        <div className="flex flex-col h-full">
+                          <div className="flex-1">
+                            <h4 className="font-bold text-lg text-gray-900 mb-2 group-hover:text-orange-600 transition-colors">
+                              {item.name}
+                            </h4>
+                            {item.description && (
+                              <p className="text-gray-600 text-sm mb-3 leading-relaxed">
+                                {item.description}
+                              </p>
+                            )}
+                            <div className="flex items-center justify-between mb-4">
+                              <span className="text-2xl font-bold text-green-600">₹{item.price}</span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                            {cart[item.id] ? (
+                              <div className="flex items-center space-x-3 bg-gray-50 rounded-full p-1">
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  onClick={() => removeFromCart(item.id)}
+                                  className="h-10 w-10 rounded-full border-2 hover:bg-red-50 hover:border-red-300"
+                                >
+                                  <Minus className="h-4 w-4" />
+                                </Button>
+                                <span className="font-bold text-lg min-w-[2rem] text-center">{cart[item.id]}</span>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  onClick={() => addToCart(item.id)}
+                                  className="h-10 w-10 rounded-full border-2 hover:bg-green-50 hover:border-green-300"
+                                >
+                                  <Plus className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button 
+                                onClick={() => addToCart(item.id)}
+                                className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold px-6 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add to Cart
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+
+        {/* Service Information */}
+        <div className="grid md:grid-cols-2 gap-6">
+          <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200 shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center text-blue-700">
+                <Truck className="h-6 w-6 mr-2" />
+                Quick Service
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-3 text-gray-700">
+                <li className="flex items-center">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                  Orders delivered directly to your seat
+                </li>
+                <li className="flex items-center">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                  Average delivery time: 10-15 minutes
+                </li>
+                <li className="flex items-center">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                  Fresh preparation for every order
+                </li>
+                <li className="flex items-center">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                  Digital payment accepted
+                </li>
+              </ul>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200 shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center text-green-700">
+                <Clock className="h-6 w-6 mr-2" />
+                Service Hours
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-3 text-gray-700">
+                <li className="flex items-center">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
+                  Monday to Sunday: 8:00 AM - 10:00 PM
+                </li>
+                <li className="flex items-center">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
+                  Special night service: 10:00 PM - 6:00 AM
+                </li>
+                <li className="flex items-center">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
+                  Hot beverages available 24/7
+                </li>
+                <li className="flex items-center">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
+                  Fresh food prepared daily
+                </li>
+              </ul>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 };
