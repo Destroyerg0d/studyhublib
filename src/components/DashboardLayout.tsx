@@ -16,6 +16,7 @@ import {
   Menu,
   X,
   Home,
+  GraduationCap,
 } from "lucide-react";
 
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
@@ -35,6 +36,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
     { path: "/dashboard/fees", icon: CreditCard, label: "Fees & Payment" },
     { path: "/dashboard/seats", icon: Users, label: "Seat Booking" },
     { path: "/dashboard/canteen", icon: Coffee, label: "Canteen" },
+    { path: "/dashboard/tuition", icon: GraduationCap, label: "Home Tuition" },
     { path: "/dashboard/verification", icon: CheckCircle, label: "Verification" },
     { path: "/dashboard/fingerprint", icon: Fingerprint, label: "Fingerprint" },
     { path: "/dashboard/stationery", icon: ShoppingBag, label: "Stationery" },
@@ -51,7 +53,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
       <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
-        fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-xl transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static`}>
+        fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-xl transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:flex lg:flex-col`}>
         
         <div className="flex items-center justify-between p-4 border-b">
           <div className="flex items-center">
@@ -71,7 +73,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
           </Button>
         </div>
 
-        <nav className="mt-6 px-4">
+        <nav className="mt-6 px-4 flex-1 overflow-y-auto">
           <div className="space-y-2">
             {menuItems.map((item) => {
               const Icon = item.icon;
@@ -86,8 +88,8 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                   }`}
                   onClick={() => setSidebarOpen(false)}
                 >
-                  <Icon className="h-5 w-5 mr-3" />
-                  {item.label}
+                  <Icon className="h-4 w-4 mr-3 flex-shrink-0" />
+                  <span className="truncate">{item.label}</span>
                 </Link>
               );
             })}
@@ -152,7 +154,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
         </header>
 
         {/* Page Content */}
-        <main className="p-4 lg:p-6">
+        <main className="p-4 lg:p-6 overflow-x-auto">
           {children}
         </main>
       </div>
