@@ -343,6 +343,33 @@ export type Database = {
         }
         Relationships: []
       }
+      tuition_locations: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          rates: Json
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          rates?: Json
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          rates?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       verification_requests: {
         Row: {
           aadhar_back_url: string | null
