@@ -119,38 +119,66 @@ const FeesPayment = () => {
   return (
     <div className="space-y-6">
       {/* Current Status */}
-      <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <CheckCircle className="h-6 w-6 text-green-600 mr-3" />
-              <div>
-                <CardTitle className="text-green-900">Membership Active</CardTitle>
-                <CardDescription className="text-green-700">
-                  Your day time membership is active until Jan 31, 2025
-                </CardDescription>
+      {currentSubscription ? (
+        <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <CheckCircle className="h-6 w-6 text-green-600 mr-3" />
+                <div>
+                  <CardTitle className="text-green-900">Membership Active</CardTitle>
+                  <CardDescription className="text-green-700">
+                    Your {currentSubscription.plans?.type} membership is active until {new Date(currentSubscription.end_date).toLocaleDateString()}
+                  </CardDescription>
+                </div>
+              </div>
+              <Badge className="bg-green-500 text-white">Active</Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-green-900">₹{currentSubscription.plans?.price}</p>
+                <p className="text-sm text-green-700">Current Plan</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-green-900">
+                  {Math.max(0, Math.ceil((new Date(currentSubscription.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))}
+                </p>
+                <p className="text-sm text-green-700">Days Remaining</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-green-900 capitalize">{currentSubscription.plans?.type}</p>
+                <p className="text-sm text-green-700">Time Slot</p>
               </div>
             </div>
-            <Badge className="bg-green-500 text-white">Active</Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid md:grid-cols-3 gap-4">
-            <div className="text-center">
-              <p className="text-2xl font-bold text-green-900">₹1,000</p>
-              <p className="text-sm text-green-700">Current Plan</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <AlertCircle className="h-6 w-6 text-yellow-600 mr-3" />
+                <div>
+                  <CardTitle className="text-yellow-900">No Active Membership</CardTitle>
+                  <CardDescription className="text-yellow-700">
+                    Select a plan below to start your membership
+                  </CardDescription>
+                </div>
+              </div>
+              <Badge className="bg-yellow-500 text-white">Inactive</Badge>
             </div>
+          </CardHeader>
+          <CardContent>
             <div className="text-center">
-              <p className="text-2xl font-bold text-green-900">29</p>
-              <p className="text-sm text-green-700">Days Remaining</p>
+              <p className="text-sm text-yellow-700">
+                Choose from our day time, night time, or 24/7 access plans to get started
+              </p>
             </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-green-900">Day</p>
-              <p className="text-sm text-green-700">Time Slot</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="new-payment" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
