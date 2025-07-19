@@ -2,8 +2,41 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRazorpay } from "@/hooks/useRazorpay";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 const PricingSection = () => {
+  const { user } = useAuth();
+  const { initiatePayment, isLoading } = useRazorpay();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const handlePlanSelect = (plan) => {
+    if (!user) {
+      toast({
+        title: "Login Required",
+        description: "Please log in to purchase a plan",
+        variant: "destructive",
+      });
+      navigate('/auth');
+      return;
+    }
+
+    // Generate a plan ID for payment (you may want to use actual plan IDs from database)
+    const planId = `${plan.name.toLowerCase().replace(/\s+/g, '-')}-1month`;
+    const amount = parseInt(plan.price.replace('₹', '').replace(',', ''));
+
+    initiatePayment({
+      planId,
+      amount,
+      planName: plan.name,
+      onSuccess: () => {
+        navigate('/dashboard/fees');
+      },
+    });
+  };
+
   const plans = [
     {
       name: "Full Day",
@@ -132,8 +165,13 @@ const PricingSection = () => {
                     </div>
                   ))}
                 </div>
-                <Button className="w-full mt-4" variant={plan.popular ? "default" : "outline"}>
-                  Choose {plan.name}
+                <Button 
+                  className="w-full mt-4" 
+                  variant={plan.popular ? "default" : "outline"}
+                  onClick={() => handlePlanSelect(plan)}
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Processing..." : `Choose ${plan.name}`}
                 </Button>
               </CardContent>
             </Card>

@@ -1,8 +1,33 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRazorpay } from "@/hooks/useRazorpay";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 const HeroSection = () => {
+  const { user } = useAuth();
+  const { initiatePayment, isLoading } = useRazorpay();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const handleBookSeat = () => {
+    if (!user) {
+      navigate('/auth');
+      return;
+    }
+
+    // Default to most popular plan - Full Day 1 Month
+    initiatePayment({
+      planId: 'full-day-1month',
+      amount: 1000,
+      planName: 'Full Day - 1 Month',
+      onSuccess: () => {
+        navigate('/dashboard/fees');
+      },
+    });
+  };
   return (
     <section className="relative py-20 md:py-32 overflow-hidden">
       <div className="absolute inset-0 z-0">
@@ -25,12 +50,15 @@ const HeroSection = () => {
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Link to="/auth">
-              <Button size="lg" className="bg-yellow-500 hover:bg-yellow-600 text-black font-semibold text-lg px-8 py-4 hover-scale">
-                Book Your Seat Today
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-            </Link>
+            <Button 
+              size="lg" 
+              className="bg-yellow-500 hover:bg-yellow-600 text-black font-semibold text-lg px-8 py-4 hover-scale"
+              onClick={handleBookSeat}
+              disabled={isLoading}
+            >
+              {isLoading ? "Processing..." : "Book Your Seat Today"}
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Button>
           </div>
         </div>
       </div>

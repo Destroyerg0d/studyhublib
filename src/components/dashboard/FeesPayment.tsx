@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useRazorpay } from "@/hooks/useRazorpay";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   CreditCard,
   Calendar,
@@ -20,44 +23,60 @@ import {
 
 const FeesPayment = () => {
   const [selectedPlan, setSelectedPlan] = useState("");
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [plans, setPlans] = useState([]);
+  const [payments, setPayments] = useState([]);
+  const [currentSubscription, setCurrentSubscription] = useState(null);
   const { toast } = useToast();
+  const { initiatePayment, isLoading } = useRazorpay();
+  const { user } = useAuth();
 
-  const dayTimePlans = [
-    { id: "day-1", duration: "1 Month", price: 1000, popular: false },
-    { id: "day-3", duration: "3 Months", price: 2800, popular: true, savings: 200 },
-    { id: "day-6", duration: "6 Months", price: 5200, popular: false, savings: 800 },
-    { id: "day-12", duration: "12 Months", price: 10000, popular: false, savings: 2000 },
-  ];
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!user) return;
 
-  const nightTimePlans = [
-    { id: "night-1", duration: "1 Month", price: 1400, popular: false },
-    { id: "night-3", duration: "3 Months", price: 3500, popular: true, savings: 700 },
-  ];
+      // Fetch plans
+      const { data: plansData } = await supabase
+        .from('plans')
+        .select('*')
+        .eq('active', true)
+        .order('duration_months');
 
-  const paymentHistory = [
-    {
-      date: "Dec 1, 2024",
-      amount: 1000,
-      plan: "Day Time - 1 Month",
-      status: "paid",
-      method: "UPI",
-    },
-    {
-      date: "Nov 1, 2024",
-      amount: 1000,
-      plan: "Day Time - 1 Month",
-      status: "paid",
-      method: "Card",
-    },
-    {
-      date: "Jan 1, 2025",
-      amount: 1000,
-      plan: "Day Time - 1 Month",
-      status: "pending",
-      method: "UPI",
-    },
-  ];
+      if (plansData) {
+        setPlans(plansData);
+      }
+
+      // Fetch current subscription
+      const { data: subscriptionData } = await supabase
+        .from('subscriptions')
+        .select('*, plans(*)')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (subscriptionData) {
+        setCurrentSubscription(subscriptionData);
+      }
+
+      // Fetch payment history
+      const { data: paymentsData } = await supabase
+        .from('payments')
+        .select('*, plans(*)')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (paymentsData) {
+        setPayments(paymentsData);
+      }
+    };
+
+    fetchData();
+  }, [user]);
+
+  const dayTimePlans = plans.filter(plan => plan.type === 'day_time');
+  const nightTimePlans = plans.filter(plan => plan.type === 'night_time');
 
   const handlePayment = async () => {
     if (!selectedPlan) {
@@ -69,17 +88,22 @@ const FeesPayment = () => {
       return;
     }
 
-    setIsProcessing(true);
-    
-    // Simulate payment processing
-    setTimeout(() => {
-      setIsProcessing(false);
-      toast({
-        title: "Payment Successful!",
-        description: "Your membership has been updated successfully.",
-      });
-      setSelectedPlan("");
-    }, 2000);
+    const plan = plans.find(p => p.id === selectedPlan);
+    if (!plan) return;
+
+    await initiatePayment({
+      planId: plan.id,
+      amount: plan.price,
+      planName: plan.name,
+      onSuccess: () => {
+        setSelectedPlan("");
+        // Refresh data
+        window.location.reload();
+      },
+      onError: (error) => {
+        console.error('Payment error:', error);
+      },
+    });
   };
 
   const getStatusColor = (status: string) => {
@@ -147,36 +171,27 @@ const FeesPayment = () => {
               <CardContent>
                 <RadioGroup value={selectedPlan} onValueChange={setSelectedPlan}>
                   <div className="space-y-3">
-                    {dayTimePlans.map((plan) => (
-                      <div key={plan.id} className="relative">
-                        <div className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-gray-50">
-                          <RadioGroupItem value={plan.id} id={plan.id} />
-                          <Label htmlFor={plan.id} className="flex-1 cursor-pointer">
-                            <div className="flex justify-between items-center">
-                              <div>
-                                <p className="font-medium">{plan.duration}</p>
-                                {plan.savings && (
-                                  <p className="text-sm text-green-600">
-                                    Save ₹{plan.savings}
-                                  </p>
-                                )}
-                              </div>
-                              <div className="text-right">
-                                <p className="text-lg font-bold">₹{plan.price}</p>
-                                <p className="text-sm text-gray-500">
-                                  ₹{Math.round(plan.price / parseInt(plan.duration))}/month
-                                </p>
-                              </div>
-                            </div>
-                          </Label>
-                        </div>
-                        {plan.popular && (
-                          <Badge className="absolute -top-2 -right-2 bg-blue-500">
-                            Popular
-                          </Badge>
-                        )}
-                      </div>
-                    ))}
+                     {dayTimePlans.map((plan) => (
+                       <div key={plan.id} className="relative">
+                         <div className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-gray-50">
+                           <RadioGroupItem value={plan.id} id={plan.id} />
+                           <Label htmlFor={plan.id} className="flex-1 cursor-pointer">
+                             <div className="flex justify-between items-center">
+                               <div>
+                                 <p className="font-medium">{plan.name}</p>
+                                 <p className="text-sm text-gray-600">{plan.duration_months} months</p>
+                               </div>
+                               <div className="text-right">
+                                 <p className="text-lg font-bold">₹{plan.price}</p>
+                                 <p className="text-sm text-gray-500">
+                                   ₹{Math.round(plan.price / plan.duration_months)}/month
+                                 </p>
+                               </div>
+                             </div>
+                           </Label>
+                         </div>
+                       </div>
+                     ))}
                   </div>
                 </RadioGroup>
               </CardContent>
@@ -194,36 +209,27 @@ const FeesPayment = () => {
               <CardContent>
                 <RadioGroup value={selectedPlan} onValueChange={setSelectedPlan}>
                   <div className="space-y-3">
-                    {nightTimePlans.map((plan) => (
-                      <div key={plan.id} className="relative">
-                        <div className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-gray-50">
-                          <RadioGroupItem value={plan.id} id={plan.id} />
-                          <Label htmlFor={plan.id} className="flex-1 cursor-pointer">
-                            <div className="flex justify-between items-center">
-                              <div>
-                                <p className="font-medium">{plan.duration}</p>
-                                {plan.savings && (
-                                  <p className="text-sm text-green-600">
-                                    Save ₹{plan.savings}
-                                  </p>
-                                )}
-                              </div>
-                              <div className="text-right">
-                                <p className="text-lg font-bold">₹{plan.price}</p>
-                                <p className="text-sm text-gray-500">
-                                  ₹{Math.round(plan.price / parseInt(plan.duration))}/month
-                                </p>
-                              </div>
-                            </div>
-                          </Label>
-                        </div>
-                        {plan.popular && (
-                          <Badge className="absolute -top-2 -right-2 bg-purple-500">
-                            Popular
-                          </Badge>
-                        )}
-                      </div>
-                    ))}
+                     {nightTimePlans.map((plan) => (
+                       <div key={plan.id} className="relative">
+                         <div className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-gray-50">
+                           <RadioGroupItem value={plan.id} id={plan.id} />
+                           <Label htmlFor={plan.id} className="flex-1 cursor-pointer">
+                             <div className="flex justify-between items-center">
+                               <div>
+                                 <p className="font-medium">{plan.name}</p>
+                                 <p className="text-sm text-gray-600">{plan.duration_months} months</p>
+                               </div>
+                               <div className="text-right">
+                                 <p className="text-lg font-bold">₹{plan.price}</p>
+                                 <p className="text-sm text-gray-500">
+                                   ₹{Math.round(plan.price / plan.duration_months)}/month
+                                 </p>
+                               </div>
+                             </div>
+                           </Label>
+                         </div>
+                       </div>
+                     ))}
                   </div>
                 </RadioGroup>
 
@@ -247,11 +253,9 @@ const FeesPayment = () => {
                 <CardTitle>Complete Payment</CardTitle>
                 <CardDescription>
                   Selected: {
-                    [...dayTimePlans, ...nightTimePlans]
-                      .find(p => p.id === selectedPlan)?.duration
+                    plans.find(p => p.id === selectedPlan)?.name
                   } - ₹{
-                    [...dayTimePlans, ...nightTimePlans]
-                      .find(p => p.id === selectedPlan)?.price
+                    plans.find(p => p.id === selectedPlan)?.price
                   }
                 </CardDescription>
               </CardHeader>
@@ -260,11 +264,11 @@ const FeesPayment = () => {
                   <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
                     <span>Plan Amount</span>
                     <span className="font-semibold">
-                      ₹{[...dayTimePlans, ...nightTimePlans].find(p => p.id === selectedPlan)?.price}
+                      ₹{plans.find(p => p.id === selectedPlan)?.price}
                     </span>
                   </div>
                   
-                  {selectedPlan.startsWith('night') && (
+                  {plans.find(p => p.id === selectedPlan)?.type === 'night_time' && (
                     <div className="flex justify-between items-center p-4 bg-blue-50 rounded-lg">
                       <span>Security Deposit</span>
                       <span className="font-semibold">₹1,000</span>
@@ -275,8 +279,8 @@ const FeesPayment = () => {
                     <span className="font-semibold">Total Amount</span>
                     <span className="text-xl font-bold text-green-700">
                       ₹{
-                        ([...dayTimePlans, ...nightTimePlans].find(p => p.id === selectedPlan)?.price || 0) +
-                        (selectedPlan.startsWith('night') ? 1000 : 0)
+                        (plans.find(p => p.id === selectedPlan)?.price || 0) +
+                        (plans.find(p => p.id === selectedPlan)?.type === 'night_time' ? 1000 : 0)
                       }
                     </span>
                   </div>
@@ -285,10 +289,10 @@ const FeesPayment = () => {
                     className="w-full" 
                     size="lg"
                     onClick={handlePayment}
-                    disabled={isProcessing}
+                    disabled={isLoading}
                   >
                     <CreditCard className="h-4 w-4 mr-2" />
-                    {isProcessing ? "Processing..." : "Pay Now"}
+                    {isLoading ? "Processing..." : "Pay with Razorpay"}
                   </Button>
                 </div>
               </CardContent>
@@ -304,25 +308,28 @@ const FeesPayment = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {paymentHistory.map((payment, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
+                {payments.map((payment) => (
+                  <div key={payment.id} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex items-center space-x-3">
                       <IndianRupee className="h-5 w-5 text-gray-600" />
                       <div>
-                        <p className="font-medium">{payment.plan}</p>
+                        <p className="font-medium">{payment.plans?.name || 'Plan'}</p>
                         <p className="text-sm text-gray-600">
-                          {payment.date} • {payment.method}
+                          {new Date(payment.created_at).toLocaleDateString()} • Razorpay
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold">₹{payment.amount}</p>
+                      <p className="font-semibold">₹{payment.amount / 100}</p>
                       <Badge className={getStatusColor(payment.status)}>
                         {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
                       </Badge>
                     </div>
                   </div>
                 ))}
+                {payments.length === 0 && (
+                  <p className="text-center text-gray-500 py-8">No payment history found</p>
+                )}
               </div>
             </CardContent>
           </Card>
