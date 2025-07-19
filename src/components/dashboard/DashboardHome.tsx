@@ -12,6 +12,7 @@ import {
   AlertCircle,
   Clock,
   IndianRupee,
+  GraduationCap,
 } from "lucide-react";
 
 const DashboardHome = () => {
@@ -45,6 +46,13 @@ const DashboardHome = () => {
       icon: CheckCircle,
       link: "/dashboard/verification",
       color: "text-orange-600",
+    },
+    {
+      title: "Home Tuition",
+      description: "Find qualified tutors for home classes",
+      icon: GraduationCap,
+      link: "/dashboard/tuition",
+      color: "text-emerald-600",
     },
   ];
 

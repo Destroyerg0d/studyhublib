@@ -1,6 +1,6 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Clock, Users, Shield, BookOpen, Wifi, Coffee } from "lucide-react";
+import { Clock, Users, Shield, BookOpen, Wifi, Coffee, GraduationCap } from "lucide-react";
 
 const FeaturesSection = () => {
   const features = [
@@ -39,6 +39,12 @@ const FeaturesSection = () => {
       title: "Refreshments",
       description: "On-site canteen with beverages and snacks to keep you energized",
       color: "text-red-600"
+    },
+    {
+      icon: GraduationCap,
+      title: "Home Tuition",
+      description: "Professional male and female tutors available for all classes. Contact: 8595300308",
+      color: "text-emerald-600"
     }
   ];
 
