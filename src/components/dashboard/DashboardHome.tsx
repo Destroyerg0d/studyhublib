@@ -209,7 +209,6 @@ const DashboardHome = () => {
           </CardContent>
         </Card>
       </div>
-    </div>
   );
 };
 

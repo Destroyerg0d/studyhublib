@@ -422,7 +422,6 @@ const AdminHome = () => {
           </CardContent>
         </Card>
       </div>
-    </div>
   );
 };
 
