@@ -75,8 +75,9 @@ const FeesPayment = () => {
     fetchData();
   }, [user]);
 
-  const dayTimePlans = plans.filter(plan => plan.type === 'day_time');
-  const nightTimePlans = plans.filter(plan => plan.type === 'night_time');
+  const dayTimePlans = plans.filter(plan => plan.type === 'day');
+  const nightTimePlans = plans.filter(plan => plan.type === 'night');
+  const fullTimePlans = plans.filter(plan => plan.type === '24/7');
 
   const handlePayment = async () => {
     if (!selectedPlan) {
@@ -158,7 +159,7 @@ const FeesPayment = () => {
         </TabsList>
 
         <TabsContent value="new-payment" className="space-y-6">
-          <div className="grid lg:grid-cols-2 gap-6">
+          <div className="grid lg:grid-cols-3 gap-6">
             {/* Day Time Plans */}
             <Card>
               <CardHeader>
@@ -244,6 +245,54 @@ const FeesPayment = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* 24/7 Full Time Plans */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center">
+                  <Clock className="h-5 w-5 text-purple-600 mr-2" />
+                  <CardTitle>24/7 Access Plans</CardTitle>
+                </div>
+                <CardDescription>Round the clock access (Premium plan)</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <RadioGroup value={selectedPlan} onValueChange={setSelectedPlan}>
+                  <div className="space-y-3">
+                     {fullTimePlans.map((plan) => (
+                       <div key={plan.id} className="relative">
+                         <div className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-gray-50">
+                           <RadioGroupItem value={plan.id} id={plan.id} />
+                           <Label htmlFor={plan.id} className="flex-1 cursor-pointer">
+                             <div className="flex justify-between items-center">
+                               <div>
+                                 <p className="font-medium">{plan.name}</p>
+                                 <p className="text-sm text-gray-600">{plan.duration_months} months</p>
+                               </div>
+                               <div className="text-right">
+                                 <p className="text-lg font-bold">₹{plan.price}</p>
+                                 <p className="text-sm text-gray-500">
+                                   ₹{Math.round(plan.price / plan.duration_months)}/month
+                                 </p>
+                               </div>
+                             </div>
+                           </Label>
+                         </div>
+                       </div>
+                     ))}
+                  </div>
+                </RadioGroup>
+
+                <div className="mt-4 p-3 bg-purple-50 rounded-lg border border-purple-200">
+                  <div className="flex items-start">
+                    <AlertCircle className="h-4 w-4 text-purple-600 mr-2 mt-0.5" />
+                    <div className="text-sm text-purple-800">
+                      <p className="font-medium">Premium Features Included</p>
+                      <p>All facilities with round-the-clock access and premium support</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Payment Section */}
@@ -268,7 +317,7 @@ const FeesPayment = () => {
                     </span>
                   </div>
                   
-                  {plans.find(p => p.id === selectedPlan)?.type === 'night_time' && (
+                  {plans.find(p => p.id === selectedPlan)?.type === 'night' && (
                     <div className="flex justify-between items-center p-4 bg-blue-50 rounded-lg">
                       <span>Security Deposit</span>
                       <span className="font-semibold">₹1,000</span>
@@ -280,7 +329,7 @@ const FeesPayment = () => {
                     <span className="text-xl font-bold text-green-700">
                       ₹{
                         (plans.find(p => p.id === selectedPlan)?.price || 0) +
-                        (plans.find(p => p.id === selectedPlan)?.type === 'night_time' ? 1000 : 0)
+                        (plans.find(p => p.id === selectedPlan)?.type === 'night' ? 1000 : 0)
                       }
                     </span>
                   </div>
