@@ -164,7 +164,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const register = async (email: string, password: string, name: string): Promise<{ success: boolean; error?: string }> => {
     try {
       console.log('Attempting registration for:', email);
-      const redirectUrl = `${window.location.origin}/`;
+      const redirectUrl = `https://thestudyhublib.site/dashboard`;
       
       const { data, error } = await supabase.auth.signUp({
         email,
