@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import WorldClock from "@/components/common/WorldClock";
+
 import {
   Users,
   CreditCard,
@@ -258,9 +258,7 @@ const AdminHome = () => {
   };
 
   return (
-    <>
-      <WorldClock />
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Welcome Section */}
         <div className="bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg p-6">
           <h1 className="text-2xl font-bold mb-2">Admin Dashboard</h1>
@@ -424,7 +422,7 @@ const AdminHome = () => {
           </CardContent>
         </Card>
       </div>
-    </>
+    </div>
   );
 };
 
