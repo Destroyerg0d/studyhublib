@@ -42,13 +42,12 @@ const PricingSection = () => {
       name: "Full Day",
       price: "₹1,000",
       period: "per month",
-      description: "8:00 AM - 10:00 PM",
+      description: "6:00 AM - 10:00 PM",
       features: [
-        "14 hours daily access",
+        "16 hours daily access",
         "Individual study booth",
         "WiFi & power outlets",
-        "Peaceful environment",
-        "Security deposit: ₹500"
+        "Peaceful environment"
       ],
       discounts: [
         "3 months: ₹2,800 (Save ₹200)",
@@ -62,9 +61,9 @@ const PricingSection = () => {
       name: "Half Day Morning",
       price: "₹600",
       period: "per month",
-      description: "8:00 AM - 3:00 PM",
+      description: "6:00 AM - 3:00 PM",
       features: [
-        "7 hours daily access",
+        "9 hours daily access",
         "Morning focused hours",
         "Individual study booth",
         "WiFi & power outlets",
@@ -109,11 +108,29 @@ const PricingSection = () => {
         "Perfect for night owls"
       ],
       discounts: [
-        "3 months: ₹3,500 (Save ₹100)",
-        "Security: ₹1,000 (one-time)"
+        "3 months: ₹3,500 (Save ₹100)"
       ],
       popular: false,
       color: "border-purple-500"
+    },
+    {
+      name: "Full Shift",
+      price: "₹2,000",
+      period: "per month",
+      description: "24/7 Access",
+      features: [
+        "24 hours daily access",
+        "Round the clock access",
+        "Individual study booth",
+        "WiFi & power outlets",
+        "Premium plan"
+      ],
+      discounts: [
+        "3 months: ₹5,700 (Save ₹300)",
+        "6 months: ₹11,000 (Save ₹1,000)"
+      ],
+      popular: false,
+      color: "border-red-500"
     }
   ];
 
@@ -127,7 +144,7 @@ const PricingSection = () => {
           </p>
         </div>
         
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-6">
           {plans.map((plan) => (
             <Card 
               key={plan.name} 
