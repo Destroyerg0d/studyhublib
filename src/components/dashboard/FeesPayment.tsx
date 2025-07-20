@@ -1,11 +1,8 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useRazorpay } from "@/hooks/useRazorpay";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,6 +19,8 @@ import {
 } from "lucide-react";
 
 const FeesPayment = () => {
+  const [selectedPlanType, setSelectedPlanType] = useState<string>("");
+  const [selectedDuration, setSelectedDuration] = useState<string>("");
   const [selectedPlan, setSelectedPlan] = useState("");
   const [plans, setPlans] = useState([]);
   const [payments, setPayments] = useState([]);
@@ -75,11 +74,104 @@ const FeesPayment = () => {
     fetchData();
   }, [user]);
 
-  const dayTimePlans = plans.filter(plan => plan.type === 'day');
-  const morningPlans = plans.filter(plan => plan.type === 'morning');
-  const eveningPlans = plans.filter(plan => plan.type === 'evening');
-  const nightTimePlans = plans.filter(plan => plan.type === 'night');
-  const fullShiftPlans = plans.filter(plan => plan.type === '24/7');
+  // Group plans by type and duration for the new UX
+  const plansByType = {
+    day: plans.filter(plan => plan.type === 'day'),
+    morning: plans.filter(plan => plan.type === 'morning'),
+    evening: plans.filter(plan => plan.type === 'evening'),
+    night: plans.filter(plan => plan.type === 'night'),
+    '24/7': plans.filter(plan => plan.type === '24/7'),
+  };
+
+  // Plan type definitions with enhanced styling
+  const planTypes = [
+    {
+      type: 'day',
+      name: 'Full Day',
+      timing: '6:00 AM - 10:00 PM',
+      description: '16 hours of productive study time',
+      icon: Sun,
+      color: 'from-yellow-400 to-orange-500',
+      textColor: 'text-yellow-700',
+      bgColor: 'bg-yellow-50',
+      borderColor: 'border-yellow-200',
+      hours: '16 hours'
+    },
+    {
+      type: 'morning',
+      name: 'Morning Shift',
+      timing: '6:00 AM - 3:00 PM',
+      description: 'Perfect for early birds and fresh minds',
+      icon: Sun,
+      color: 'from-orange-400 to-amber-500',
+      textColor: 'text-orange-700',
+      bgColor: 'bg-orange-50',
+      borderColor: 'border-orange-200',
+      hours: '9 hours'
+    },
+    {
+      type: 'evening',
+      name: 'Evening Shift',
+      timing: '3:00 PM - 10:00 PM',
+      description: 'Ideal for working professionals',
+      icon: Sun,
+      color: 'from-amber-400 to-yellow-500',
+      textColor: 'text-amber-700',
+      bgColor: 'bg-amber-50',
+      borderColor: 'border-amber-200',
+      hours: '7 hours'
+    },
+    {
+      type: 'night',
+      name: 'Night Shift',
+      timing: '10:00 PM - 6:00 AM',
+      description: 'Quiet environment for night owls',
+      icon: Moon,
+      color: 'from-blue-400 to-indigo-500',
+      textColor: 'text-blue-700',
+      bgColor: 'bg-blue-50',
+      borderColor: 'border-blue-200',
+      hours: '8 hours'
+    },
+    {
+      type: '24/7',
+      name: 'Full Shift',
+      timing: '24/7 Access',
+      description: 'Unlimited access - Premium plan',
+      icon: Clock,
+      color: 'from-purple-400 to-pink-500',
+      textColor: 'text-purple-700',
+      bgColor: 'bg-purple-50',
+      borderColor: 'border-purple-200',
+      hours: '24 hours'
+    }
+  ];
+
+  // Get available durations for selected plan type
+  const getAvailableDurations = (planType: string) => {
+    const plansForType = plansByType[planType] || [];
+    return plansForType.map(plan => ({
+      value: plan.id,
+      label: `${plan.duration_months} ${plan.duration_months === 1 ? 'Month' : 'Months'}`,
+      price: plan.price,
+      originalPrice: plan.duration_months * (plansForType.find(p => p.duration_months === 1)?.price || 0),
+      savings: plan.duration_months > 1 ? (plan.duration_months * (plansForType.find(p => p.duration_months === 1)?.price || 0)) - plan.price : 0,
+      duration: plan.duration_months
+    })).sort((a, b) => a.duration - b.duration);
+  };
+
+  // Handle plan type selection
+  const handlePlanTypeSelect = (planType: string) => {
+    setSelectedPlanType(planType);
+    setSelectedDuration("");
+    setSelectedPlan("");
+  };
+
+  // Handle duration selection
+  const handleDurationSelect = (planId: string) => {
+    setSelectedDuration(planId);
+    setSelectedPlan(planId);
+  };
 
   const handlePayment = async () => {
     if (!selectedPlan) {
@@ -188,249 +280,193 @@ const FeesPayment = () => {
           <TabsTrigger value="history">Payment History</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="new-payment" className="space-y-6">
-          <div className="grid lg:grid-cols-5 gap-6">
-            {/* Full Day Plans */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center">
-                  <Sun className="h-5 w-5 text-yellow-600 mr-2" />
-                  <CardTitle>Full Day Plans</CardTitle>
-                </div>
-                <CardDescription>6:00 AM - 10:00 PM</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <RadioGroup value={selectedPlan} onValueChange={setSelectedPlan}>
-                  <div className="space-y-3">
-                     {dayTimePlans.map((plan) => (
-                       <div key={plan.id} className="relative">
-                         <div className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-gray-50">
-                           <RadioGroupItem value={plan.id} id={plan.id} />
-                           <Label htmlFor={plan.id} className="flex-1 cursor-pointer">
-                             <div className="flex justify-between items-center">
-                               <div>
-                                 <p className="font-medium">{plan.name}</p>
-                                 <p className="text-sm text-gray-600">{plan.duration_months} months</p>
-                               </div>
-                               <div className="text-right">
-                                 <p className="text-lg font-bold">₹{plan.price}</p>
-                                 <p className="text-sm text-gray-500">
-                                   ₹{Math.round(plan.price / plan.duration_months)}/month
-                                 </p>
-                               </div>
-                             </div>
-                           </Label>
-                         </div>
-                       </div>
-                     ))}
-                  </div>
-                </RadioGroup>
-              </CardContent>
-            </Card>
-
-            {/* Morning Plans */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center">
-                  <Sun className="h-5 w-5 text-orange-600 mr-2" />
-                  <CardTitle>Morning Plans</CardTitle>
-                </div>
-                <CardDescription>6:00 AM - 3:00 PM</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <RadioGroup value={selectedPlan} onValueChange={setSelectedPlan}>
-                  <div className="space-y-3">
-                     {morningPlans.map((plan) => (
-                       <div key={plan.id} className="relative">
-                         <div className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-gray-50">
-                           <RadioGroupItem value={plan.id} id={plan.id} />
-                           <Label htmlFor={plan.id} className="flex-1 cursor-pointer">
-                             <div className="flex justify-between items-center">
-                               <div>
-                                 <p className="font-medium">{plan.name}</p>
-                                 <p className="text-sm text-gray-600">{plan.duration_months} months</p>
-                               </div>
-                               <div className="text-right">
-                                 <p className="text-lg font-bold">₹{plan.price}</p>
-                                 <p className="text-sm text-gray-500">
-                                   ₹{Math.round(plan.price / plan.duration_months)}/month
-                                 </p>
-                               </div>
-                             </div>
-                           </Label>
-                         </div>
-                       </div>
-                     ))}
-                  </div>
-                </RadioGroup>
-              </CardContent>
-            </Card>
-
-            {/* Evening Plans */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center">
-                  <Sun className="h-5 w-5 text-amber-600 mr-2" />
-                  <CardTitle>Evening Plans</CardTitle>
-                </div>
-                <CardDescription>3:00 PM - 10:00 PM</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <RadioGroup value={selectedPlan} onValueChange={setSelectedPlan}>
-                  <div className="space-y-3">
-                     {eveningPlans.map((plan) => (
-                       <div key={plan.id} className="relative">
-                         <div className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-gray-50">
-                           <RadioGroupItem value={plan.id} id={plan.id} />
-                           <Label htmlFor={plan.id} className="flex-1 cursor-pointer">
-                             <div className="flex justify-between items-center">
-                               <div>
-                                 <p className="font-medium">{plan.name}</p>
-                                 <p className="text-sm text-gray-600">{plan.duration_months} months</p>
-                               </div>
-                               <div className="text-right">
-                                 <p className="text-lg font-bold">₹{plan.price}</p>
-                                 <p className="text-sm text-gray-500">
-                                   ₹{Math.round(plan.price / plan.duration_months)}/month
-                                 </p>
-                               </div>
-                             </div>
-                           </Label>
-                         </div>
-                       </div>
-                     ))}
-                  </div>
-                </RadioGroup>
-              </CardContent>
-            </Card>
-
-            {/* Night Time Plans */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center">
-                  <Moon className="h-5 w-5 text-blue-600 mr-2" />
-                  <CardTitle>Night Plans</CardTitle>
-                </div>
-                <CardDescription>10:00 PM - 6:00 AM</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <RadioGroup value={selectedPlan} onValueChange={setSelectedPlan}>
-                  <div className="space-y-3">
-                     {nightTimePlans.map((plan) => (
-                       <div key={plan.id} className="relative">
-                         <div className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-gray-50">
-                           <RadioGroupItem value={plan.id} id={plan.id} />
-                           <Label htmlFor={plan.id} className="flex-1 cursor-pointer">
-                             <div className="flex justify-between items-center">
-                               <div>
-                                 <p className="font-medium">{plan.name}</p>
-                                 <p className="text-sm text-gray-600">{plan.duration_months} months</p>
-                               </div>
-                               <div className="text-right">
-                                 <p className="text-lg font-bold">₹{plan.price}</p>
-                                 <p className="text-sm text-gray-500">
-                                   ₹{Math.round(plan.price / plan.duration_months)}/month
-                                 </p>
-                               </div>
-                             </div>
-                           </Label>
-                         </div>
-                       </div>
-                     ))}
-                  </div>
-                </RadioGroup>
-              </CardContent>
-            </Card>
-
-            {/* Full Shift Plans */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center">
-                  <Clock className="h-5 w-5 text-purple-600 mr-2" />
-                  <CardTitle>Full Shift Plans</CardTitle>
-                </div>
-                <CardDescription>24/7 Access (Premium)</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <RadioGroup value={selectedPlan} onValueChange={setSelectedPlan}>
-                  <div className="space-y-3">
-                     {fullShiftPlans.map((plan) => (
-                       <div key={plan.id} className="relative">
-                         <div className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-gray-50">
-                           <RadioGroupItem value={plan.id} id={plan.id} />
-                           <Label htmlFor={plan.id} className="flex-1 cursor-pointer">
-                             <div className="flex justify-between items-center">
-                               <div>
-                                 <p className="font-medium">{plan.name}</p>
-                                 <p className="text-sm text-gray-600">{plan.duration_months} months</p>
-                               </div>
-                               <div className="text-right">
-                                 <p className="text-lg font-bold">₹{plan.price}</p>
-                                 <p className="text-sm text-gray-500">
-                                   ₹{Math.round(plan.price / plan.duration_months)}/month
-                                 </p>
-                               </div>
-                             </div>
-                           </Label>
-                         </div>
-                       </div>
-                     ))}
-                  </div>
-                </RadioGroup>
-
-                <div className="mt-4 p-3 bg-purple-50 rounded-lg border border-purple-200">
-                  <div className="flex items-start">
-                    <AlertCircle className="h-4 w-4 text-purple-600 mr-2 mt-0.5" />
-                    <div className="text-sm text-purple-800">
-                      <p className="font-medium">Premium Features Included</p>
-                      <p>All facilities with round-the-clock access and premium support</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+        <TabsContent value="new-payment" className="space-y-8">
+          {/* Step 1: Plan Type Selection */}
+          <div className="space-y-6">
+            <div className="text-center">
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Choose Your Study Schedule</h3>
+              <p className="text-gray-600">Select the time slot that works best for you</p>
+            </div>
+            
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {planTypes.map((planType) => {
+                const Icon = planType.icon;
+                const isSelected = selectedPlanType === planType.type;
+                const plansForType = plansByType[planType.type] || [];
+                const basePrice = plansForType.find(p => p.duration_months === 1)?.price || 0;
+                
+                return (
+                  <Card 
+                    key={planType.type}
+                    className={`relative cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${
+                      isSelected 
+                        ? `ring-2 ring-blue-500 ${planType.borderColor} shadow-lg` 
+                        : `${planType.borderColor} hover:${planType.borderColor.replace('border-', 'border-').replace('-200', '-300')}`
+                    }`}
+                    onClick={() => handlePlanTypeSelect(planType.type)}
+                  >
+                    {isSelected && (
+                      <div className="absolute -top-2 -right-2 bg-blue-500 text-white rounded-full p-1">
+                        <CheckCircle className="h-4 w-4" />
+                      </div>
+                    )}
+                    
+                    <CardHeader className={`${planType.bgColor} rounded-t-lg`}>
+                      <div className="flex items-center justify-between">
+                        <div className={`p-2 rounded-lg bg-gradient-to-br ${planType.color}`}>
+                          <Icon className="h-6 w-6 text-white" />
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm text-gray-500">Starting from</div>
+                          <div className="text-lg font-bold text-gray-900">₹{basePrice}</div>
+                        </div>
+                      </div>
+                      <CardTitle className={`text-xl ${planType.textColor}`}>{planType.name}</CardTitle>
+                      <CardDescription className="font-medium text-gray-700">{planType.timing}</CardDescription>
+                    </CardHeader>
+                    
+                    <CardContent className="pt-4">
+                      <div className="space-y-3">
+                        <p className="text-sm text-gray-600">{planType.description}</p>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-500">Access Duration:</span>
+                          <span className="font-medium text-gray-700">{planType.hours}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-500">Plans Available:</span>
+                          <span className="font-medium text-gray-700">{plansForType.length} options</span>
+                        </div>
+                      </div>
+                      
+                      {isSelected && (
+                        <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                          <div className="flex items-center text-blue-700">
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            <span className="text-sm font-medium">Selected! Choose duration below</span>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Payment Section */}
+          {/* Step 2: Duration Selection */}
+          {selectedPlanType && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="text-center">
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">Select Your Duration</h3>
+                <p className="text-gray-600">Longer plans offer better savings</p>
+              </div>
+              
+              <div className="max-w-2xl mx-auto">
+                <div className="grid gap-4">
+                  {getAvailableDurations(selectedPlanType).map((duration, index) => {
+                    const isSelected = selectedDuration === duration.value;
+                    const isPopular = duration.duration === 3;
+                    
+                    return (
+                      <Card
+                        key={duration.value}
+                        className={`relative cursor-pointer transition-all duration-300 hover:shadow-md ${
+                          isSelected 
+                            ? 'ring-2 ring-blue-500 shadow-md border-blue-200' 
+                            : 'hover:border-gray-300'
+                        } ${isPopular ? 'border-green-300 bg-green-50' : ''}`}
+                        onClick={() => handleDurationSelect(duration.value)}
+                      >
+                        {isPopular && (
+                          <div className="absolute -top-2 left-4 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-medium">
+                            Most Popular
+                          </div>
+                        )}
+                        
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <div className={`w-4 h-4 rounded-full border-2 ${
+                                isSelected 
+                                  ? 'bg-blue-500 border-blue-500' 
+                                  : 'border-gray-300'
+                              }`}>
+                                {isSelected && (
+                                  <div className="w-2 h-2 bg-white rounded-full mx-auto mt-0.5"></div>
+                                )}
+                              </div>
+                              <div>
+                                <div className="font-semibold text-gray-900">{duration.label}</div>
+                                {duration.savings > 0 && (
+                                  <div className="text-sm text-green-600 font-medium">
+                                    Save ₹{duration.savings}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="text-right">
+                              <div className="text-2xl font-bold text-gray-900">₹{duration.price}</div>
+                              {duration.savings > 0 && (
+                                <div className="text-sm text-gray-500 line-through">₹{duration.originalPrice}</div>
+                              )}
+                              <div className="text-sm text-gray-600">
+                                ₹{Math.round(duration.price / duration.duration)}/month
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Payment Section */}
           {selectedPlan && (
-            <Card>
+            <Card className="animate-fade-in">
               <CardHeader>
-                <CardTitle>Complete Payment</CardTitle>
+                <CardTitle className="flex items-center">
+                  <CreditCard className="h-5 w-5 mr-2" />
+                  Complete Your Purchase
+                </CardTitle>
                 <CardDescription>
-                  Selected: {
-                    plans.find(p => p.id === selectedPlan)?.name
-                  } - ₹{
-                    plans.find(p => p.id === selectedPlan)?.price
+                  {planTypes.find(p => p.type === selectedPlanType)?.name} - {
+                    getAvailableDurations(selectedPlanType).find(d => d.value === selectedDuration)?.label
                   }
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
-                    <span>Plan Amount</span>
-                    <span className="font-semibold">
-                      ₹{plans.find(p => p.id === selectedPlan)?.price}
-                    </span>
-                  </div>
-                  
-                  {/* Remove night plan security deposit logic since we don't require it for updated plans */}
-
-                  <div className="flex justify-between items-center p-4 bg-green-50 rounded-lg border-2 border-green-200">
-                    <span className="font-semibold">Total Amount</span>
-                    <span className="text-xl font-bold text-green-700">
-                      ₹{plans.find(p => p.id === selectedPlan)?.price || 0}
-                    </span>
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-gray-900">Total Amount</span>
+                      <span className="text-2xl font-bold text-blue-700">
+                        ₹{plans.find(p => p.id === selectedPlan)?.price}
+                      </span>
+                    </div>
+                    <div className="text-sm text-gray-600 mt-1">
+                      One-time payment • Secure checkout
+                    </div>
                   </div>
 
                   <Button 
-                    className="w-full" 
+                    className="w-full py-6 text-lg font-semibold" 
                     size="lg"
                     onClick={handlePayment}
                     disabled={isLoading}
                   >
-                    <CreditCard className="h-4 w-4 mr-2" />
+                    <CreditCard className="h-5 w-5 mr-2" />
                     {isLoading ? "Processing..." : "Pay with Razorpay"}
                   </Button>
+                  
+                  <div className="text-center">
+                    <div className="text-sm text-gray-500">
+                      🔒 Secure payment powered by Razorpay
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
