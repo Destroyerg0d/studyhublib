@@ -195,7 +195,7 @@ const FeesPayment = () => {
                   <Sun className="h-5 w-5 text-yellow-600 mr-2" />
                   <CardTitle>Day Time Plans</CardTitle>
                 </div>
-                <CardDescription>8:00 AM - 10:00 PM</CardDescription>
+                <CardDescription>8:00 AM - 3:00 PM (Morning)</CardDescription>
               </CardHeader>
               <CardContent>
                 <RadioGroup value={selectedPlan} onValueChange={setSelectedPlan}>
@@ -233,7 +233,7 @@ const FeesPayment = () => {
                   <Moon className="h-5 w-5 text-blue-600 mr-2" />
                   <CardTitle>Night Time Plans</CardTitle>
                 </div>
-                <CardDescription>10:00 PM - 6:00 AM (Security deposit required)</CardDescription>
+                <CardDescription>3:00 PM - 10:00 PM (Evening)</CardDescription>
               </CardHeader>
               <CardContent>
                 <RadioGroup value={selectedPlan} onValueChange={setSelectedPlan}>

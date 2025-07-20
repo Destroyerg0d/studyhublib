@@ -215,7 +215,11 @@ const HomeTuition = () => {
           <p className="text-gray-600 mb-6 text-sm sm:text-base">
             Get personalized attention with our experienced tutors. Call now to discuss your requirements and schedule a demo class.
           </p>
-          <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 text-sm sm:text-base">
+          <Button 
+            size="lg" 
+            className="bg-emerald-600 hover:bg-emerald-700 text-sm sm:text-base"
+            onClick={() => window.open('tel:8595300308', '_self')}
+          >
             <Phone className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
             Call 8595300308
           </Button>
