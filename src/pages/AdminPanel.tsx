@@ -9,6 +9,7 @@ import FeesManagement from "@/components/admin/FeesManagement";
 import VerificationManagement from "@/components/admin/VerificationManagement";
 import RegistrationManagement from "@/components/admin/RegistrationManagement";
 import TuitionManagement from "@/components/admin/TuitionManagement";
+import CanteenManagement from "@/components/admin/CanteenManagement";
 
 const AdminPanel = () => {
   return (
@@ -22,6 +23,7 @@ const AdminPanel = () => {
         <Route path="/verification" element={<VerificationManagement />} />
         <Route path="/registrations" element={<RegistrationManagement />} />
         <Route path="/tuition" element={<TuitionManagement />} />
+        <Route path="/canteen" element={<CanteenManagement />} />
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>
     </AdminLayout>

@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      canteen_items: {
+        Row: {
+          available: boolean
+          category: Database["public"]["Enums"]["food_category"]
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          ingredients: string[] | null
+          name: string
+          nutritional_info: Json | null
+          preparation_time: number | null
+          price: number
+          updated_at: string
+        }
+        Insert: {
+          available?: boolean
+          category: Database["public"]["Enums"]["food_category"]
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          ingredients?: string[] | null
+          name: string
+          nutritional_info?: Json | null
+          preparation_time?: number | null
+          price: number
+          updated_at?: string
+        }
+        Update: {
+          available?: boolean
+          category?: Database["public"]["Enums"]["food_category"]
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          ingredients?: string[] | null
+          name?: string
+          nutritional_info?: Json | null
+          preparation_time?: number | null
+          price?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       holidays: {
         Row: {
           created_at: string
@@ -504,7 +549,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      food_category: "snacks" | "beverages" | "meals" | "desserts" | "healthy"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -631,6 +676,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      food_category: ["snacks", "beverages", "meals", "desserts", "healthy"],
+    },
   },
 } as const

@@ -17,6 +17,7 @@ import {
   Home,
   FileText,
   GraduationCap,
+  UtensilsCrossed,
 } from "lucide-react";
 
 const AdminLayout = ({ children }: { children: React.ReactNode }) => {
@@ -38,6 +39,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
     { path: "/admin/timetable", icon: Calendar, label: "Timetable" },
     { path: "/admin/fees", icon: CreditCard, label: "Fees Management" },
     { path: "/admin/tuition", icon: GraduationCap, label: "Tuition Management" },
+    { path: "/admin/canteen", icon: UtensilsCrossed, label: "Canteen Management" },
     { path: "/admin/verification", icon: CheckCircle, label: "Verification" },
   ];
 
