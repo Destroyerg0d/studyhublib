@@ -95,7 +95,7 @@ export const useRazorpay = () => {
 
       // Configure Razorpay options
       const options = {
-        key: data.key || 'rzp_test_yourkeyhere', // Use key from backend response
+        key: data.key_id, // Use the actual Razorpay key from backend
         amount: data.order.amount,
         currency: data.order.currency,
         name: 'StudyHub',

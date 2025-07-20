@@ -85,6 +85,7 @@ Deno.serve(async (req) => {
           success: true,
           order: razorpayOrder,
           payment_id: payment.id,
+          key_id: Deno.env.get('RAZORPAY_KEY_ID')!, // Include the key for frontend
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
