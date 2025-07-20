@@ -120,10 +120,18 @@ const HomeTuition = () => {
                 <p className="text-emerald-700 text-xs sm:text-sm">Contact us today to book your tutor</p>
               </div>
             </div>
-            <div className="flex justify-center sm:justify-end">
+            <div className="flex flex-col sm:flex-row items-center gap-3">
               <Badge variant="secondary" className="text-sm sm:text-lg px-3 py-2 sm:px-4 bg-emerald-600 text-white">
                 📞 8595300308
               </Badge>
+              <Button 
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
+                onClick={() => window.open('tel:8595300308', '_self')}
+              >
+                <Phone className="mr-2 h-4 w-4" />
+                Call Now
+              </Button>
             </div>
           </div>
         </CardContent>
