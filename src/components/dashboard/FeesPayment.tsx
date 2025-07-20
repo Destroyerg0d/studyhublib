@@ -288,8 +288,108 @@ const FeesPayment = () => {
               <p className="text-gray-600">Select the time slot that works best for you</p>
             </div>
             
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {planTypes.map((planType) => {
+            {/* Full Day Plan - Featured prominently */}
+            <div className="lg:col-span-3 mb-6">
+              {(() => {
+                const fullDayType = planTypes.find(p => p.type === 'day');
+                const Icon = fullDayType.icon;
+                const isSelected = selectedPlanType === 'day';
+                const plansForType = plansByType['day'] || [];
+                const basePrice = plansForType.find(p => p.duration_months === 1)?.price || 0;
+                const savings = plansForType.find(p => p.duration_months === 12) ? 
+                  (12 * basePrice) - plansForType.find(p => p.duration_months === 12).price : 0;
+                
+                return (
+                  <Card 
+                    className={`relative cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-2 border-2 ${
+                      isSelected 
+                        ? 'ring-4 ring-blue-500 border-blue-400 shadow-2xl' 
+                        : 'border-yellow-300 hover:border-yellow-400 shadow-lg'
+                    } bg-gradient-to-br from-yellow-50 via-orange-50 to-amber-50`}
+                    onClick={() => handlePlanTypeSelect('day')}
+                  >
+                    {/* Most Popular Badge */}
+                    <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-2 rounded-full text-sm font-bold shadow-lg">
+                      ⭐ MOST POPULAR
+                    </div>
+                    
+                    {isSelected && (
+                      <div className="absolute -top-2 -right-2 bg-blue-500 text-white rounded-full p-2">
+                        <CheckCircle className="h-6 w-6" />
+                      </div>
+                    )}
+                    
+                    <CardHeader className="pb-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center space-x-4">
+                          <div className="p-3 rounded-xl bg-gradient-to-br from-yellow-400 to-orange-500 shadow-lg">
+                            <Icon className="h-8 w-8 text-white" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-3xl font-bold text-yellow-700">Full Day Access</CardTitle>
+                            <CardDescription className="text-lg font-medium text-gray-700">6:00 AM - 10:00 PM (16 Hours)</CardDescription>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm text-gray-500 mb-1">Starting from</div>
+                          <div className="text-3xl font-bold text-gray-900">₹{basePrice}<span className="text-lg text-gray-600">/month</span></div>
+                          {savings > 0 && (
+                            <div className="text-sm text-green-600 font-bold">Save up to ₹{savings} yearly!</div>
+                          )}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    
+                    <CardContent>
+                      <div className="grid md:grid-cols-3 gap-6">
+                        <div className="space-y-3">
+                          <h4 className="font-semibold text-gray-900 mb-2">✨ Premium Features</h4>
+                          <div className="space-y-2 text-sm text-gray-700">
+                            <div className="flex items-center"><CheckCircle className="h-4 w-4 text-green-500 mr-2" />Maximum study hours (16/day)</div>
+                            <div className="flex items-center"><CheckCircle className="h-4 w-4 text-green-500 mr-2" />Private study booth</div>
+                            <div className="flex items-center"><CheckCircle className="h-4 w-4 text-green-500 mr-2" />High-speed WiFi & power outlets</div>
+                            <div className="flex items-center"><CheckCircle className="h-4 w-4 text-green-500 mr-2" />Climate controlled environment</div>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          <h4 className="font-semibold text-gray-900 mb-2">🎯 Perfect For</h4>
+                          <div className="space-y-2 text-sm text-gray-700">
+                            <div>• Competitive exam preparation</div>
+                            <div>• Full-time students</div>
+                            <div>• Dedicated learners</div>
+                            <div>• Maximum productivity seekers</div>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          <h4 className="font-semibold text-gray-900 mb-2">💰 Value Benefits</h4>
+                          <div className="space-y-2 text-sm text-gray-700">
+                            <div className="flex items-center"><CheckCircle className="h-4 w-4 text-green-500 mr-2" />Best value per hour</div>
+                            <div className="flex items-center"><CheckCircle className="h-4 w-4 text-green-500 mr-2" />Flexible study schedule</div>
+                            <div className="flex items-center"><CheckCircle className="h-4 w-4 text-green-500 mr-2" />Higher success rate</div>
+                            <div className="flex items-center"><CheckCircle className="h-4 w-4 text-green-500 mr-2" />{plansForType.length} duration options</div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {isSelected && (
+                        <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200">
+                          <div className="flex items-center justify-center text-blue-700">
+                            <CheckCircle className="h-5 w-5 mr-2" />
+                            <span className="text-lg font-bold">Excellent Choice! Select your duration below ⬇️</span>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+            </div>
+
+            {/* Other Plans - Arranged in grid */}
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {planTypes.filter(p => p.type !== 'day').map((planType) => {
                 const Icon = planType.icon;
                 const isSelected = selectedPlanType === planType.type;
                 const plansForType = plansByType[planType.type] || [];
@@ -314,35 +414,35 @@ const FeesPayment = () => {
                     <CardHeader className={`${planType.bgColor} rounded-t-lg`}>
                       <div className="flex items-center justify-between">
                         <div className={`p-2 rounded-lg bg-gradient-to-br ${planType.color}`}>
-                          <Icon className="h-6 w-6 text-white" />
+                          <Icon className="h-5 w-5 text-white" />
                         </div>
                         <div className="text-right">
-                          <div className="text-sm text-gray-500">Starting from</div>
+                          <div className="text-xs text-gray-500">from</div>
                           <div className="text-lg font-bold text-gray-900">₹{basePrice}</div>
                         </div>
                       </div>
-                      <CardTitle className={`text-xl ${planType.textColor}`}>{planType.name}</CardTitle>
-                      <CardDescription className="font-medium text-gray-700">{planType.timing}</CardDescription>
+                      <CardTitle className={`text-lg ${planType.textColor}`}>{planType.name}</CardTitle>
+                      <CardDescription className="text-sm font-medium text-gray-700">{planType.timing}</CardDescription>
                     </CardHeader>
                     
-                    <CardContent className="pt-4">
-                      <div className="space-y-3">
-                        <p className="text-sm text-gray-600">{planType.description}</p>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-500">Access Duration:</span>
+                    <CardContent className="pt-3">
+                      <div className="space-y-2">
+                        <p className="text-xs text-gray-600">{planType.description}</p>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-gray-500">Duration:</span>
                           <span className="font-medium text-gray-700">{planType.hours}</span>
                         </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-500">Plans Available:</span>
-                          <span className="font-medium text-gray-700">{plansForType.length} options</span>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-gray-500">Options:</span>
+                          <span className="font-medium text-gray-700">{plansForType.length} plans</span>
                         </div>
                       </div>
                       
                       {isSelected && (
-                        <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <div className="mt-3 p-2 bg-blue-50 rounded-lg border border-blue-200">
                           <div className="flex items-center text-blue-700">
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            <span className="text-sm font-medium">Selected! Choose duration below</span>
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            <span className="text-xs font-medium">Selected!</span>
                           </div>
                         </div>
                       )}
