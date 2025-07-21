@@ -1,10 +1,11 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
   DialogContent,
@@ -32,97 +33,140 @@ import {
   AlertTriangle,
 } from "lucide-react";
 
+interface VerificationRequest {
+  id: string;
+  user_id: string;
+  aadhar_front_url: string | null;
+  aadhar_back_url: string | null;
+  status: string;
+  created_at: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  rejection_reason: string | null;
+  user?: {
+    name: string;
+    email: string;
+    phone: string | null;
+    address: string | null;
+    emergency_contact_name: string | null;
+    emergency_contact_phone: string | null;
+    emergency_contact_relation: string | null;
+  };
+}
+
 const VerificationManagement = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [highlightPending, setHighlightPending] = useState(false);
+  const [verificationRequests, setVerificationRequests] = useState<VerificationRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [rejectionReason, setRejectionReason] = useState("");
   const tableRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  const verificationRequests = [
-    {
-      id: 1,
-      studentName: "Rahul Kumar",
-      email: "rahul@email.com",
-      phone: "+91 9876543210",
-      submitDate: "2024-12-18",
-      status: "pending",
-      documents: {
-        aadharFront: "aadhar_front_rahul.jpg",
-        aadharBack: "aadhar_back_rahul.jpg",
-      },
-      address: "123 MG Road, Bangalore, Karnataka - 560001",
-      emergencyContact: {
-        name: "Suresh Kumar",
-        phone: "+91 9876543200",
-        relation: "Father",
-      },
-    },
-    {
-      id: 2,
-      studentName: "Priya Sharma", 
-      email: "priya@email.com",
-      phone: "+91 9876543211",
-      submitDate: "2024-12-17",
-      status: "approved",
-      documents: {
-        aadharFront: "aadhar_front_priya.jpg",
-        aadharBack: "aadhar_back_priya.jpg",
-      },
-      address: "456 Brigade Road, Bangalore, Karnataka - 560025",
-      emergencyContact: {
-        name: "Raj Sharma",
-        phone: "+91 9876543201",
-        relation: "Father",
-      },
-      reviewDate: "2024-12-17",
-      reviewedBy: "Admin",
-    },
-    {
-      id: 3,
-      studentName: "Amit Singh",
-      email: "amit@email.com", 
-      phone: "+91 9876543212",
-      submitDate: "2024-12-16",
-      status: "pending",
-      documents: {
-        aadharFront: "aadhar_front_amit.jpg",
-        aadharBack: "aadhar_back_amit.jpg",
-      },
-      address: "789 Commercial Street, Bangalore, Karnataka - 560001",
-      emergencyContact: {
-        name: "Sunita Singh",
-        phone: "+91 9876543202",
-        relation: "Mother",
-      },
-    },
-    {
-      id: 4,
-      studentName: "Sneha Patel",
-      email: "sneha@email.com",
-      phone: "+91 9876543213", 
-      submitDate: "2024-12-15",
-      status: "rejected",
-      documents: {
-        aadharFront: "aadhar_front_sneha.jpg",
-        aadharBack: "aadhar_back_sneha.jpg",
-      },
-      address: "321 Residency Road, Bangalore, Karnataka - 560025",
-      emergencyContact: {
-        name: "Kiran Patel",
-        phone: "+91 9876543203",
-        relation: "Father",
-      },
-      reviewDate: "2024-12-15",
-      reviewedBy: "Admin",
-      rejectionReason: "Unclear document images. Please resubmit with clearer photos.",
-    },
-  ];
+  const fetchVerificationRequests = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('verification_requests')
+        .select(`
+          *,
+          profiles!verification_requests_user_id_fkey (
+            name,
+            email,
+            phone,
+            address,
+            emergency_contact_name,
+            emergency_contact_phone,
+            emergency_contact_relation
+          )
+        `)
+        .order('created_at', { ascending: false });
 
-  const handleVerificationAction = (action: string, requestId: number, reason?: string) => {
-    toast({
-      title: `Verification ${action}`,
-      description: `Request has been ${action.toLowerCase()} successfully.`,
-    });
+      if (error) throw error;
+      
+      // Transform data to match interface
+      const transformedData = data?.map(request => ({
+        ...request,
+        user: request.profiles
+      })) || [];
+      
+      setVerificationRequests(transformedData);
+    } catch (error) {
+      console.error('Error fetching verification requests:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch verification requests",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchVerificationRequests();
+
+    // Set up real-time subscription
+    const channel = supabase
+      .channel('verification-management')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'verification_requests' }, 
+        () => fetchVerificationRequests()
+      )
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'profiles' }, 
+        () => fetchVerificationRequests()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const handleVerificationAction = async (action: string, requestId: string, reason?: string) => {
+    try {
+      const updateData: any = {
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: (await supabase.auth.getUser()).data.user?.id,
+      };
+
+      if (action === "Approved") {
+        updateData.status = "approved";
+        
+        // Also update the user's verified status in profiles
+        const request = verificationRequests.find(r => r.id === requestId);
+        if (request?.user_id) {
+          await supabase
+            .from('profiles')
+            .update({ verified: true })
+            .eq('id', request.user_id);
+        }
+      } else if (action === "Rejected") {
+        updateData.status = "rejected";
+        updateData.rejection_reason = reason;
+      }
+
+      const { error } = await supabase
+        .from('verification_requests')
+        .update(updateData)
+        .eq('id', requestId);
+
+      if (error) throw error;
+
+      toast({
+        title: `Verification ${action}`,
+        description: `Request has been ${action.toLowerCase()} successfully.`,
+      });
+      
+      fetchVerificationRequests();
+    } catch (error) {
+      console.error(`Error ${action.toLowerCase()}ing verification:`, error);
+      toast({
+        title: "Error",
+        description: `Failed to ${action.toLowerCase()} verification`,
+        variant: "destructive",
+      });
+    }
   };
 
   const handleReviewNow = () => {
@@ -163,8 +207,8 @@ const VerificationManagement = () => {
   };
 
   const filteredRequests = verificationRequests.filter(request => {
-    const matchesSearch = request.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         request.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = request.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         request.user?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          request.status.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesSearch;
   });
@@ -172,6 +216,15 @@ const VerificationManagement = () => {
   const pendingCount = verificationRequests.filter(r => r.status === "pending").length;
   const approvedCount = verificationRequests.filter(r => r.status === "approved").length;
   const rejectedCount = verificationRequests.filter(r => r.status === "rejected").length;
+  const approvalRate = verificationRequests.length > 0 ? Math.round((approvedCount / verificationRequests.length) * 100) : 0;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg">Loading verification requests...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -207,9 +260,7 @@ const VerificationManagement = () => {
         <Card>
           <CardContent className="flex items-center justify-center p-6">
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">
-                {Math.round((approvedCount / verificationRequests.length) * 100)}%
-              </div>
+              <div className="text-2xl font-bold text-blue-600">{approvalRate}%</div>
               <div className="text-sm text-gray-600">Approval Rate</div>
             </div>
           </CardContent>
@@ -283,23 +334,23 @@ const VerificationManagement = () => {
                   >
                     <TableCell>
                       <div>
-                        <div className="font-medium">{request.studentName}</div>
-                        <div className="text-sm text-gray-500">{request.email}</div>
+                        <div className="font-medium">{request.user?.name || "Unknown"}</div>
+                        <div className="text-sm text-gray-500">{request.user?.email || "No email"}</div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm">{request.phone}</div>
+                      <div className="text-sm">{request.user?.phone || "No phone"}</div>
                       <div className="text-xs text-gray-500">
-                        Emergency: {request.emergencyContact.name}
+                        Emergency: {request.user?.emergency_contact_name || "Not provided"}
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="text-sm">
-                        {new Date(request.submitDate).toLocaleDateString()}
+                        {new Date(request.created_at).toLocaleDateString()}
                       </div>
-                      {request.reviewDate && (
+                      {request.reviewed_at && (
                         <div className="text-xs text-gray-500">
-                          Reviewed: {new Date(request.reviewDate).toLocaleDateString()}
+                          Reviewed: {new Date(request.reviewed_at).toLocaleDateString()}
                         </div>
                       )}
                     </TableCell>
@@ -318,7 +369,7 @@ const VerificationManagement = () => {
                           </DialogTrigger>
                           <DialogContent className="max-w-2xl">
                             <DialogHeader>
-                              <DialogTitle>Verification Details - {request.studentName}</DialogTitle>
+                              <DialogTitle>Verification Details - {request.user?.name}</DialogTitle>
                               <DialogDescription>
                                 Review all submitted information and documents
                               </DialogDescription>
@@ -331,15 +382,15 @@ const VerificationManagement = () => {
                                 <div className="grid grid-cols-2 gap-4 text-sm">
                                   <div>
                                     <span className="text-gray-600">Name:</span>
-                                    <p>{request.studentName}</p>
+                                    <p>{request.user?.name || "Not provided"}</p>
                                   </div>
                                   <div>
                                     <span className="text-gray-600">Email:</span>
-                                    <p>{request.email}</p>
+                                    <p>{request.user?.email || "Not provided"}</p>
                                   </div>
                                   <div>
                                     <span className="text-gray-600">Phone:</span>
-                                    <p>{request.phone}</p>
+                                    <p>{request.user?.phone || "Not provided"}</p>
                                   </div>
                                   <div>
                                     <span className="text-gray-600">Status:</span>
@@ -353,7 +404,7 @@ const VerificationManagement = () => {
                               {/* Address */}
                               <div>
                                 <h4 className="font-medium mb-2">Address</h4>
-                                <p className="text-sm text-gray-700">{request.address}</p>
+                                <p className="text-sm text-gray-700">{request.user?.address || "Not provided"}</p>
                               </div>
 
                               {/* Emergency Contact */}
@@ -362,15 +413,15 @@ const VerificationManagement = () => {
                                 <div className="grid grid-cols-3 gap-4 text-sm">
                                   <div>
                                     <span className="text-gray-600">Name:</span>
-                                    <p>{request.emergencyContact.name}</p>
+                                    <p>{request.user?.emergency_contact_name || "Not provided"}</p>
                                   </div>
                                   <div>
                                     <span className="text-gray-600">Phone:</span>
-                                    <p>{request.emergencyContact.phone}</p>
+                                    <p>{request.user?.emergency_contact_phone || "Not provided"}</p>
                                   </div>
                                   <div>
                                     <span className="text-gray-600">Relation:</span>
-                                    <p>{request.emergencyContact.relation}</p>
+                                    <p>{request.user?.emergency_contact_relation || "Not provided"}</p>
                                   </div>
                                 </div>
                               </div>
@@ -381,27 +432,35 @@ const VerificationManagement = () => {
                                 <div className="grid grid-cols-2 gap-4">
                                   <div className="border rounded-lg p-3">
                                     <p className="text-sm font-medium">Aadhar Front</p>
-                                    <p className="text-xs text-gray-500">{request.documents.aadharFront}</p>
-                                    <Button size="sm" variant="outline" className="mt-2">
-                                      View Document
-                                    </Button>
+                                    <p className="text-xs text-gray-500">{request.aadhar_front_url ? "Document uploaded" : "Not uploaded"}</p>
+                                    {request.aadhar_front_url && (
+                                      <Button size="sm" variant="outline" className="mt-2" asChild>
+                                        <a href={request.aadhar_front_url} target="_blank" rel="noopener noreferrer">
+                                          View Document
+                                        </a>
+                                      </Button>
+                                    )}
                                   </div>
                                   <div className="border rounded-lg p-3">
                                     <p className="text-sm font-medium">Aadhar Back</p>
-                                    <p className="text-xs text-gray-500">{request.documents.aadharBack}</p>
-                                    <Button size="sm" variant="outline" className="mt-2">
-                                      View Document
-                                    </Button>
+                                    <p className="text-xs text-gray-500">{request.aadhar_back_url ? "Document uploaded" : "Not uploaded"}</p>
+                                    {request.aadhar_back_url && (
+                                      <Button size="sm" variant="outline" className="mt-2" asChild>
+                                        <a href={request.aadhar_back_url} target="_blank" rel="noopener noreferrer">
+                                          View Document
+                                        </a>
+                                      </Button>
+                                    )}
                                   </div>
                                 </div>
                               </div>
 
                               {/* Rejection Reason (if applicable) */}
-                              {request.status === "rejected" && request.rejectionReason && (
+                              {request.status === "rejected" && request.rejection_reason && (
                                 <div>
                                   <h4 className="font-medium mb-2 text-red-700">Rejection Reason</h4>
                                   <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">
-                                    {request.rejectionReason}
+                                    {request.rejection_reason}
                                   </p>
                                 </div>
                               )}
@@ -433,15 +492,21 @@ const VerificationManagement = () => {
                                       <div className="space-y-4">
                                         <Textarea
                                           placeholder="Enter rejection reason..."
-                                          className="min-h-20"
+                                          value={rejectionReason}
+                                          onChange={(e) => setRejectionReason(e.target.value)}
                                         />
-                                        <Button
-                                          onClick={() => handleVerificationAction("Rejected", request.id)}
-                                          variant="destructive"
-                                          className="w-full"
-                                        >
-                                          Reject Verification
-                                        </Button>
+                                        <div className="flex space-x-2">
+                                          <Button 
+                                            variant="destructive"
+                                            onClick={() => {
+                                              handleVerificationAction("Rejected", request.id, rejectionReason);
+                                              setRejectionReason("");
+                                            }}
+                                            disabled={!rejectionReason.trim()}
+                                          >
+                                            Reject Request
+                                          </Button>
+                                        </div>
                                       </div>
                                     </DialogContent>
                                   </Dialog>
@@ -460,13 +525,38 @@ const VerificationManagement = () => {
                             >
                               <CheckCircle className="h-3 w-3 text-green-600" />
                             </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleVerificationAction("Rejected", request.id)}
-                            >
-                              <XCircle className="h-3 w-3 text-red-600" />
-                            </Button>
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button size="sm" variant="outline">
+                                  <XCircle className="h-3 w-3 text-red-600" />
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>Reject Verification</DialogTitle>
+                                  <DialogDescription>
+                                    Please provide a reason for rejection
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-4">
+                                  <Textarea
+                                    placeholder="Enter rejection reason..."
+                                    value={rejectionReason}
+                                    onChange={(e) => setRejectionReason(e.target.value)}
+                                  />
+                                  <Button 
+                                    variant="destructive"
+                                    onClick={() => {
+                                      handleVerificationAction("Rejected", request.id, rejectionReason);
+                                      setRejectionReason("");
+                                    }}
+                                    disabled={!rejectionReason.trim()}
+                                  >
+                                    Reject Request
+                                  </Button>
+                                </div>
+                              </DialogContent>
+                            </Dialog>
                           </>
                         )}
                       </div>
@@ -476,6 +566,13 @@ const VerificationManagement = () => {
               </TableBody>
             </Table>
           </div>
+
+          {filteredRequests.length === 0 && (
+            <div className="text-center py-8">
+              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500">No verification requests found matching your criteria.</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

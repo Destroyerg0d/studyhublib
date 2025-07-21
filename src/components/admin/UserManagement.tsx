@@ -38,7 +38,6 @@ interface User {
   created_at: string;
   subscription?: {
     plan: { name: string; price: number };
-    seat_id: string | null;
     status: string;
     amount_paid: number | null;
     end_date: string;
@@ -62,7 +61,6 @@ const UserManagement = () => {
             status,
             amount_paid,
             end_date,
-            seat_id,
             plans (
               name,
               price
@@ -282,11 +280,7 @@ const UserManagement = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {user.subscription?.seat_id ? (
-                        <Badge variant="outline">{user.subscription.seat_id}</Badge>
-                      ) : (
-                        <span className="text-gray-400">No seat</span>
-                      )}
+                      <span className="text-gray-400">Managed via Seat Bookings</span>
                     </TableCell>
                     <TableCell>
                       {user.subscription ? (
