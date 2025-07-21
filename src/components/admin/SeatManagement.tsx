@@ -13,7 +13,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Users, Settings, Eye, UserX, BarChart3, Building, Building2 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Users, Settings, Eye, UserX, BarChart3, Building, Building2, Clock, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Seat {
@@ -35,18 +42,47 @@ interface Subscription {
   user_id: string;
   plan_id: string;
   status: string;
+  start_date: string;
+  end_date: string;
   plans: {
     name: string;
     type: string;
   };
 }
 
+interface SeatBooking {
+  id: string;
+  seat_number: number;
+  user_id: string;
+  subscription_id: string;
+  time_slot: 'full_day' | 'morning' | 'evening' | 'night';
+  start_date: string;
+  end_date: string;
+  status: string;
+  profiles?: {
+    name: string;
+    email: string;
+  } | null;
+  subscriptions?: {
+    plans: {
+      name: string;
+      type: string;
+    };
+  } | null;
+}
+
+type TimeSlotType = 'full_day' | 'morning' | 'evening' | 'night';
+
 const SeatManagement = () => {
   const [selectedSeat, setSelectedSeat] = useState<string | null>(null);
   const [seats, setSeats] = useState<Seat[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [seatBookings, setSeatBookings] = useState<SeatBooking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<string>("");
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<TimeSlotType | "">("");
   const { toast } = useToast();
 
   // First floor layout - arranged as specified
@@ -92,6 +128,8 @@ const SeatManagement = () => {
           user_id,
           plan_id,
           status,
+          start_date,
+          end_date,
           plans (
             name,
             type
@@ -101,9 +139,39 @@ const SeatManagement = () => {
 
       if (subscriptionsError) throw subscriptionsError;
 
+      // Fetch seat bookings
+      const { data: bookingsData, error: bookingsError } = await supabase
+        .from('seat_bookings')
+        .select(`
+          id,
+          seat_number,
+          user_id,
+          subscription_id,
+          time_slot,
+          start_date,
+          end_date,
+          status
+        `)
+        .eq('status', 'active');
+
+      if (bookingsError) throw bookingsError;
+
+      // Manually join with profiles and subscriptions
+      const enrichedBookings: SeatBooking[] = (bookingsData || []).map(booking => {
+        const profile = profilesData?.find(p => p.id === booking.user_id);
+        const subscription = subscriptionsData?.find(s => s.id === booking.subscription_id);
+        
+        return {
+          ...booking,
+          profiles: profile ? { name: profile.name, email: profile.email } : null,
+          subscriptions: subscription ? { plans: subscription.plans } : null
+        };
+      });
+
       setSeats(seatsData || []);
       setProfiles(profilesData || []);
       setSubscriptions(subscriptionsData || []);
+      setSeatBookings(enrichedBookings);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
@@ -130,6 +198,10 @@ const SeatManagement = () => {
         { event: '*', schema: 'public', table: 'subscriptions' }, 
         () => fetchData()
       )
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'seat_bookings' }, 
+        () => fetchData()
+      )
       .subscribe();
 
     return () => {
@@ -137,23 +209,33 @@ const SeatManagement = () => {
     };
   }, []);
 
-  const handleSeatAction = async (action: string, seatId: string) => {
+  const handleSeatAction = async (action: string, seatNumber: number, timeSlot?: string) => {
     try {
-      if (action === "Release Seat") {
-        const { error } = await supabase
-          .from('seats')
-          .update({ 
-            status: 'available', 
-            assigned_user_id: null 
-          })
-          .eq('id', seatId);
+      if (action === "Release Booking") {
+        // Find the specific booking to release
+        const booking = seatBookings.find(b => 
+          b.seat_number === seatNumber && 
+          b.time_slot === timeSlot &&
+          b.status === 'active'
+        );
 
-        if (error) throw error;
+        if (booking) {
+          const { error } = await supabase
+            .from('seat_bookings')
+            .update({ status: 'cancelled' })
+            .eq('id', booking.id);
+
+          if (error) throw error;
+        }
+      } else if (action === "Assign Seat") {
+        setSelectedSeat(seatNumber.toString());
+        setAssignDialogOpen(true);
+        return;
       }
 
       toast({
         title: `${action} successful`,
-        description: `Action completed for seat ${seatId}`,
+        description: `Action completed for seat ${seatNumber}`,
       });
     } catch (error) {
       console.error('Error performing seat action:', error);
@@ -165,45 +247,115 @@ const SeatManagement = () => {
     }
   };
 
-  const getSeatInfo = (seatNumber: number) => {
-    const seat = seats.find(s => s.seat_number === seatNumber);
-    if (!seat || !seat.assigned_user_id) return null;
+  const handleAssignSeat = async () => {
+    if (!selectedSeat || !selectedUser || !selectedTimeSlot) {
+      toast({
+        title: "Missing Information",
+        description: "Please select a user and time slot",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    const profile = profiles.find(p => p.id === seat.assigned_user_id);
-    const subscription = subscriptions.find(s => s.user_id === seat.assigned_user_id);
+    try {
+      // Find user's active subscription
+      const userSubscription = subscriptions.find(s => s.user_id === selectedUser);
+      if (!userSubscription) {
+        toast({
+          title: "No Active Subscription",
+          description: "Selected user doesn't have an active subscription",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    return {
-      user: profile,
-      subscription: subscription,
-      seat: seat
-    };
+      // Check if seat is available for the time slot
+      const { data: isAvailable } = await supabase
+        .rpc('is_seat_available', {
+          _seat_number: parseInt(selectedSeat),
+          _time_slot: selectedTimeSlot as TimeSlotType,
+          _start_date: userSubscription.start_date,
+          _end_date: userSubscription.end_date
+        });
+
+      if (!isAvailable) {
+        toast({
+          title: "Seat Not Available",
+          description: "This seat is already booked for the selected time slot",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Create seat booking
+      const { error } = await supabase
+        .from('seat_bookings')
+        .insert({
+          seat_number: parseInt(selectedSeat),
+          user_id: selectedUser,
+          subscription_id: userSubscription.id,
+          time_slot: selectedTimeSlot as TimeSlotType,
+          start_date: userSubscription.start_date,
+          end_date: userSubscription.end_date,
+          status: 'active'
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Seat Assigned Successfully",
+        description: `Seat ${selectedSeat} assigned for ${selectedTimeSlot} slot`,
+      });
+
+      setAssignDialogOpen(false);
+      setSelectedSeat(null);
+      setSelectedUser("");
+      setSelectedTimeSlot("");
+      fetchData();
+    } catch (error) {
+      console.error('Error assigning seat:', error);
+      toast({
+        title: "Error",
+        description: "Failed to assign seat",
+        variant: "destructive",
+      });
+    }
   };
 
-  const getPlanColor = (planType: string) => {
-    switch (planType?.toLowerCase()) {
-      case 'full shift': return 'bg-orange-100 text-orange-800 border-orange-300';
+  const getSeatBookings = (seatNumber: number) => {
+    return seatBookings.filter(b => 
+      b.seat_number === seatNumber && 
+      b.status === 'active'
+    );
+  };
+
+  const getTimeSlotLabel = (timeSlot: string) => {
+    switch (timeSlot) {
+      case 'full_day': return 'Full Day (24/7)';
+      case 'morning': return 'Morning (8AM-2PM)';
+      case 'evening': return 'Evening (2PM-8PM)';
+      case 'night': return 'Night (8PM-8AM)';
+      default: return timeSlot;
+    }
+  };
+
+  const getTimeSlotColor = (timeSlot: string) => {
+    switch (timeSlot) {
+      case 'full_day': return 'bg-blue-100 text-blue-800 border-blue-300';
       case 'morning': return 'bg-purple-100 text-purple-800 border-purple-300';
       case 'evening': return 'bg-green-100 text-green-800 border-green-300';
-      case 'full day': return 'bg-blue-100 text-blue-800 border-blue-300';
+      case 'night': return 'bg-indigo-100 text-indigo-800 border-indigo-300';
       default: return 'bg-gray-100 text-gray-800 border-gray-300';
     }
   };
 
-  const getSeatStatus = (seatNumber: number) => {
-    const seat = seats.find(s => s.seat_number === seatNumber);
-    if (!seat) return 'available';
-    return seat.status;
-  };
-
   const renderSeat = (seatNumber: number) => {
-    const seatInfo = getSeatInfo(seatNumber);
-    const status = getSeatStatus(seatNumber);
+    const bookings = getSeatBookings(seatNumber);
+    const hasBookings = bookings.length > 0;
     
-    let seatColor = 'bg-gray-100 text-gray-800 border-gray-300';
-    
-    if (seatInfo?.subscription?.plans) {
-      seatColor = getPlanColor(seatInfo.subscription.plans.type);
-    }
+    // Create a grid showing different time slots
+    const timeSlots = ['morning', 'evening', 'night', 'full_day'];
+    const occupiedSlots = bookings.map(b => b.time_slot);
 
     return (
       <Dialog key={seatNumber}>
@@ -212,82 +364,92 @@ const SeatManagement = () => {
             className={`
               w-16 h-16 rounded-lg border-2 text-xs font-medium
               flex flex-col items-center justify-center transition-colors
-              hover:shadow-md cursor-pointer
-              ${seatColor}
+              hover:shadow-md cursor-pointer relative
+              ${hasBookings ? 'bg-red-100 text-red-800 border-red-300' : 'bg-gray-100 text-gray-800 border-gray-300'}
             `}
           >
-            <span className="font-bold">{seatNumber}</span>
-            {seatInfo?.user && (
-              <span className="text-[8px] leading-none truncate w-full text-center">
-                {seatInfo.user.name.split(' ')[0]}
-              </span>
+            <span className="font-bold text-sm">{seatNumber}</span>
+            {hasBookings && (
+              <div className="flex flex-wrap justify-center gap-0.5 mt-1">
+                {occupiedSlots.map((slot, idx) => (
+                  <div
+                    key={idx}
+                    className={`w-2 h-2 rounded-full ${getTimeSlotColor(slot).split(' ')[0]}`}
+                  />
+                ))}
+              </div>
             )}
           </button>
         </DialogTrigger>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Seat {seatNumber} Details</DialogTitle>
+            <DialogTitle>Seat {seatNumber} - Time Slot Management</DialogTitle>
             <DialogDescription>
-              Manage this seat assignment and view details
+              Manage bookings for different time slots on this seat
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
-            {seatInfo?.user ? (
-              <>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm font-medium">Student Name</Label>
-                    <p className="text-sm">{seatInfo.user.name}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Email</Label>
-                    <p className="text-sm">{seatInfo.user.email}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Plan</Label>
-                    <p className="text-sm">{seatInfo.subscription?.plans?.name || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Plan Type</Label>
-                    <Badge className={getPlanColor(seatInfo.subscription?.plans?.type || '')}>
-                      {seatInfo.subscription?.plans?.type || 'N/A'}
-                    </Badge>
-                  </div>
-                </div>
+            {/* Time Slot Grid */}
+            <div className="grid grid-cols-2 gap-4">
+              {timeSlots.map((slot) => {
+                const booking = bookings.find(b => b.time_slot === slot);
+                const isOccupied = !!booking;
                 
-                <div className="flex space-x-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleSeatAction("View Profile", seatNumber.toString())}
+                return (
+                  <div
+                    key={slot}
+                    className={`
+                      p-4 rounded-lg border-2 
+                      ${isOccupied 
+                        ? getTimeSlotColor(slot) 
+                        : 'bg-gray-50 text-gray-500 border-gray-200'
+                      }
+                    `}
                   >
-                    <Eye className="h-4 w-4 mr-2" />
-                    View Profile
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleSeatAction("Release Seat", seatNumber.toString())}
-                  >
-                    <UserX className="h-4 w-4 mr-2" />
-                    Release Seat
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <div className="text-center py-4">
-                <Users className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-500">This seat is available</p>
-                <Button
-                  className="mt-3"
-                  size="sm"
-                  onClick={() => handleSeatAction("Assign Seat", seatNumber.toString())}
-                >
-                  Assign to Student
-                </Button>
-              </div>
-            )}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center">
+                        <Clock className="h-4 w-4 mr-2" />
+                        <span className="font-medium">{getTimeSlotLabel(slot)}</span>
+                      </div>
+                      {isOccupied && (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => handleSeatAction("Release Booking", seatNumber, slot)}
+                        >
+                          <UserX className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                    
+                    {isOccupied && booking ? (
+                      <div className="text-xs space-y-1">
+                        <p><strong>User:</strong> {booking.profiles?.name}</p>
+                        <p><strong>Email:</strong> {booking.profiles?.email}</p>
+                        <p><strong>Plan:</strong> {booking.subscriptions?.plans?.name}</p>
+                        <p><strong>Valid:</strong> {new Date(booking.start_date).toLocaleDateString()} - {new Date(booking.end_date).toLocaleDateString()}</p>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-gray-400">
+                        Available for booking
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex justify-center">
+              <Button
+                onClick={() => handleSeatAction("Assign Seat", seatNumber)}
+                className="flex items-center"
+              >
+                <UserPlus className="h-4 w-4 mr-2" />
+                Assign New Booking
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -303,9 +465,9 @@ const SeatManagement = () => {
   }
 
   const totalSeats = 40; // Fixed total seats
-  const occupiedSeats = seats.filter(seat => seat.status === 'occupied').length;
-  const availableSeats = totalSeats - occupiedSeats;
-  const activeSeats = seats.filter(seat => seat.status === 'occupied').length;
+  const totalBookings = seatBookings.filter(b => b.status === 'active').length;
+  const uniqueOccupiedSeats = new Set(seatBookings.filter(b => b.status === 'active').map(b => b.seat_number)).size;
+  const availableSeats = totalSeats - uniqueOccupiedSeats;
 
   return (
     <div className="space-y-6">
@@ -323,8 +485,8 @@ const SeatManagement = () => {
         <Card>
           <CardContent className="flex items-center justify-center p-6">
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{activeSeats}</div>
-              <div className="text-sm text-gray-600">Active</div>
+              <div className="text-2xl font-bold text-green-600">{totalBookings}</div>
+              <div className="text-sm text-gray-600">Active Bookings</div>
             </div>
           </CardContent>
         </Card>
@@ -342,9 +504,9 @@ const SeatManagement = () => {
           <CardContent className="flex items-center justify-center p-6">
             <div className="text-center">
               <div className="text-2xl font-bold text-purple-600">
-                {totalSeats > 0 ? Math.round((occupiedSeats / totalSeats) * 100) : 0}%
+                {totalSeats > 0 ? Math.round((uniqueOccupiedSeats / totalSeats) * 100) : 0}%
               </div>
-              <div className="text-sm text-gray-600">Occupancy</div>
+              <div className="text-sm text-gray-600">Seat Occupancy</div>
             </div>
           </CardContent>
         </Card>
@@ -369,20 +531,19 @@ const SeatManagement = () => {
               <span className="text-sm">Available</span>
             </div>
             <div className="flex items-center">
-              <div className="w-4 h-4 bg-orange-100 border border-orange-300 rounded mr-2"></div>
-              <span className="text-sm">Full Shift</span>
+              <div className="w-4 h-4 bg-red-100 border border-red-300 rounded mr-2"></div>
+              <span className="text-sm">Has Bookings</span>
             </div>
-            <div className="flex items-center">
-              <div className="w-4 h-4 bg-purple-100 border border-purple-300 rounded mr-2"></div>
-              <span className="text-sm">Morning</span>
-            </div>
-            <div className="flex items-center">
-              <div className="w-4 h-4 bg-green-100 border border-green-300 rounded mr-2"></div>
-              <span className="text-sm">Evening</span>
-            </div>
-            <div className="flex items-center">
-              <div className="w-4 h-4 bg-blue-100 border border-blue-300 rounded mr-2"></div>
-              <span className="text-sm">Full Day</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">Time Slots:</span>
+              <div className="w-2 h-2 bg-purple-100 rounded-full"></div>
+              <span className="text-xs">Morning</span>
+              <div className="w-2 h-2 bg-green-100 rounded-full"></div>
+              <span className="text-xs">Evening</span>
+              <div className="w-2 h-2 bg-indigo-100 rounded-full"></div>
+              <span className="text-xs">Night</span>
+              <div className="w-2 h-2 bg-blue-100 rounded-full"></div>
+              <span className="text-xs">Full Day</span>
             </div>
           </div>
 
@@ -502,16 +663,16 @@ const SeatManagement = () => {
           <div className="grid md:grid-cols-3 gap-6">
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600">
-                {totalSeats > 0 ? Math.round((activeSeats / totalSeats) * 100) : 0}%
+                {totalSeats > 0 ? Math.round((uniqueOccupiedSeats / totalSeats) * 100) : 0}%
               </div>
               <div className="text-sm text-gray-600">Active Occupancy Rate</div>
               <div className="text-xs text-green-600">Real-time data</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600">
-                ₹{(activeSeats * 1000).toLocaleString()}
+                ₹{(totalBookings * 1000).toLocaleString()}
               </div>
-              <div className="text-sm text-gray-600">Monthly Revenue from Seats</div>
+              <div className="text-sm text-gray-600">Monthly Revenue from Bookings</div>
               <div className="text-xs text-green-600">Estimated average</div>
             </div>
             <div className="text-center">
@@ -524,6 +685,63 @@ const SeatManagement = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Assign Seat Dialog */}
+      <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Assign Seat {selectedSeat}</DialogTitle>
+            <DialogDescription>
+              Select a user and time slot to assign this seat
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="user-select">Select User</Label>
+              <Select value={selectedUser} onValueChange={setSelectedUser}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a user with active subscription" />
+                </SelectTrigger>
+                <SelectContent>
+                  {subscriptions.map((sub) => {
+                    const profile = profiles.find(p => p.id === sub.user_id);
+                    return (
+                      <SelectItem key={sub.user_id} value={sub.user_id}>
+                        {profile?.name} ({profile?.email}) - {sub.plans.name}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="slot-select">Select Time Slot</Label>
+              <Select value={selectedTimeSlot} onValueChange={(value) => setSelectedTimeSlot(value as TimeSlotType | "")}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose time slot" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="morning">Morning (8AM-2PM)</SelectItem>
+                  <SelectItem value="evening">Evening (2PM-8PM)</SelectItem>
+                  <SelectItem value="night">Night (8PM-8AM)</SelectItem>
+                  <SelectItem value="full_day">Full Day (24/7)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setAssignDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleAssignSeat}>
+                Assign Seat
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

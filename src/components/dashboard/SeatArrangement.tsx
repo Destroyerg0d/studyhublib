@@ -6,7 +6,22 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, CheckCircle, User, Building, Building2, Lock, AlertCircle } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Users, CheckCircle, User, Building, Building2, Lock, AlertCircle, Clock, Calendar } from "lucide-react";
 
 interface Seat {
   id: string;
@@ -42,15 +57,31 @@ interface Subscription {
   };
 }
 
+interface SeatBooking {
+  id: string;
+  seat_number: number;
+  user_id: string;
+  subscription_id: string;
+  time_slot: 'full_day' | 'morning' | 'evening' | 'night';
+  start_date: string;
+  end_date: string;
+  status: string;
+}
+
+type TimeSlotType = 'full_day' | 'morning' | 'evening' | 'night';
+
 const SeatArrangement = () => {
   const [selectedSeat, setSelectedSeat] = useState<number | null>(null);
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<TimeSlotType | "">("");
   const [seats, setSeats] = useState<Seat[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-  const [userSeat, setUserSeat] = useState<number | null>(null);
+  const [seatBookings, setSeatBookings] = useState<SeatBooking[]>([]);
+  const [userBookings, setUserBookings] = useState<SeatBooking[]>([]);
   const [userSubscription, setUserSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
+  const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -72,7 +103,7 @@ const SeatArrangement = () => {
 
   const fetchData = async () => {
     try {
-      const [seatsData, plansData, profilesData, subscriptionsData] = await Promise.all([
+      const [seatsData, plansData, profilesData, subscriptionsData, bookingsData] = await Promise.all([
         supabase.from('seats').select('*').order('seat_number'),
         supabase.from('plans').select('*').eq('active', true).order('price'),
         supabase.from('profiles').select('id, name, email'),
@@ -87,26 +118,29 @@ const SeatArrangement = () => {
             name,
             type
           )
-        `).eq('status', 'active')
+        `).eq('status', 'active'),
+        supabase.from('seat_bookings').select('*').eq('status', 'active')
       ]);
 
       if (seatsData.error) throw seatsData.error;
       if (plansData.error) throw plansData.error;
       if (profilesData.error) throw profilesData.error;
       if (subscriptionsData.error) throw subscriptionsData.error;
+      if (bookingsData.error) throw bookingsData.error;
 
       setSeats(seatsData.data || []);
       setPlans(plansData.data || []);
       setProfiles(profilesData.data || []);
       setSubscriptions(subscriptionsData.data || []);
-
-      // Find user's current seat
-      const currentUserSeat = seatsData.data?.find(seat => seat.assigned_user_id === user?.id);
-      setUserSeat(currentUserSeat?.seat_number || null);
+      setSeatBookings(bookingsData.data || []);
 
       // Find user's active subscription
       const currentUserSubscription = subscriptionsData.data?.find(sub => sub.user_id === user?.id);
       setUserSubscription(currentUserSubscription || null);
+
+      // Find user's current bookings
+      const currentUserBookings = bookingsData.data?.filter(booking => booking.user_id === user?.id) || [];
+      setUserBookings(currentUserBookings);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
@@ -122,11 +156,15 @@ const SeatArrangement = () => {
   useEffect(() => {
     fetchData();
 
-    // Set up real-time subscription for seats
+    // Set up real-time subscription for seat bookings
     const channel = supabase
       .channel('seat-updates')
       .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'seats' }, 
+        { event: '*', schema: 'public', table: 'seat_bookings' }, 
+        () => fetchData()
+      )
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'subscriptions' }, 
         () => fetchData()
       )
       .subscribe();
@@ -136,34 +174,53 @@ const SeatArrangement = () => {
     };
   }, [user?.id]);
 
-  const canSelectSeat = (seatNumber: number) => {
+  const canSelectSeat = (seatNumber: number, timeSlot: TimeSlotType) => {
     if (!userSubscription) return false;
     
-    const seat = seats.find(s => s.seat_number === seatNumber);
-    if (!seat || seat.status === 'occupied' || seatNumber === userSeat) return false;
+    // Check if seat is already booked for this time slot
+    const isBooked = seatBookings.some(b => 
+      b.seat_number === seatNumber && 
+      b.time_slot === timeSlot && 
+      b.status === 'active'
+    );
+    
+    if (isBooked) return false;
 
-    // Check if current time allows seat selection based on user's plan
-    const now = new Date();
-    const currentHour = now.getHours();
-    const planType = userSubscription.plans.type.toLowerCase();
+    // Check if user already has a booking for this time slot
+    const userHasSlot = userBookings.some(b => 
+      b.time_slot === timeSlot && 
+      b.status === 'active'
+    );
+    
+    if (userHasSlot) return false;
 
     // Check subscription validity
+    const now = new Date();
     const endDate = new Date(userSubscription.end_date);
     if (endDate < now) return false;
 
-    // Time-based restrictions based on plan type
-    switch (planType) {
-      case 'morning':
-        return currentHour >= 8 && currentHour < 14; // 8 AM - 2 PM
-      case 'evening':
-        return currentHour >= 14 && currentHour < 20; // 2 PM - 8 PM
-      case 'full shift':
-        return currentHour >= 8 && currentHour < 20; // 8 AM - 8 PM
-      case 'full day':
-        return true; // 24/7 access
-      default:
-        return false;
-    }
+    return true;
+  };
+
+  const getAvailableTimeSlots = (seatNumber: number) => {
+    const allSlots: TimeSlotType[] = ['morning', 'evening', 'night', 'full_day'];
+    
+    return allSlots.filter(slot => {
+      // Check if slot is booked
+      const isBooked = seatBookings.some(b => 
+        b.seat_number === seatNumber && 
+        b.time_slot === slot && 
+        b.status === 'active'
+      );
+      
+      // Check if user already has this slot
+      const userHasSlot = userBookings.some(b => 
+        b.time_slot === slot && 
+        b.status === 'active'
+      );
+      
+      return !isBooked && !userHasSlot;
+    });
   };
 
   const handleSeatClick = (seatNumber: number) => {
@@ -176,84 +233,73 @@ const SeatArrangement = () => {
       return;
     }
 
-    if (!canSelectSeat(seatNumber)) {
-      const planType = userSubscription.plans.type.toLowerCase();
-      let timeSlot = "";
-      
-      switch (planType) {
-        case 'morning':
-          timeSlot = "8:00 AM - 2:00 PM";
-          break;
-        case 'evening':
-          timeSlot = "2:00 PM - 8:00 PM";
-          break;
-        case 'full shift':
-          timeSlot = "8:00 AM - 8:00 PM";
-          break;
-        case 'full day':
-          timeSlot = "24/7";
-          break;
-      }
-
+    const availableSlots = getAvailableTimeSlots(seatNumber);
+    
+    if (availableSlots.length === 0) {
       toast({
         title: "Seat Not Available",
-        description: `This seat can only be selected during your plan's time slot: ${timeSlot}`,
+        description: "This seat has no available time slots or you already have bookings for all slots.",
         variant: "destructive",
       });
       return;
     }
 
-    setSelectedSeat(selectedSeat === seatNumber ? null : seatNumber);
+    setSelectedSeat(seatNumber);
+    setBookingDialogOpen(true);
   };
 
   const handleBookSeat = async () => {
-    if (!selectedSeat || !user) {
+    if (!selectedSeat || !selectedTimeSlot || !user || !userSubscription) {
       toast({
-        title: "Please select a seat",
-        description: "Choose an available seat to book.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!userSubscription) {
-      toast({
-        title: "No Active Plan",
-        description: "Please purchase a plan first to book a seat.",
+        title: "Missing Information",
+        description: "Please select a seat and time slot.",
         variant: "destructive",
       });
       return;
     }
 
     try {
-      // Release current seat if user has one
-      if (userSeat) {
-        await supabase
-          .from('seats')
-          .update({ 
-            status: 'available', 
-            assigned_user_id: null 
-          })
-          .eq('seat_number', userSeat);
+      // Check if seat is still available for the time slot
+      const { data: isAvailable } = await supabase
+        .rpc('is_seat_available', {
+          _seat_number: selectedSeat,
+          _time_slot: selectedTimeSlot as TimeSlotType,
+          _start_date: userSubscription.start_date,
+          _end_date: userSubscription.end_date
+        });
+
+      if (!isAvailable) {
+        toast({
+          title: "Seat Not Available",
+          description: "This seat is no longer available for the selected time slot.",
+          variant: "destructive",
+        });
+        return;
       }
 
-      // Book new seat
+      // Create seat booking
       const { error } = await supabase
-        .from('seats')
-        .update({ 
-          status: 'occupied', 
-          assigned_user_id: user.id 
-        })
-        .eq('seat_number', selectedSeat);
+        .from('seat_bookings')
+        .insert({
+          seat_number: selectedSeat,
+          user_id: user.id,
+          subscription_id: userSubscription.id,
+          time_slot: selectedTimeSlot as TimeSlotType,
+          start_date: userSubscription.start_date,
+          end_date: userSubscription.end_date,
+          status: 'active'
+        });
 
       if (error) throw error;
 
       toast({
         title: "Seat booked successfully!",
-        description: `You have booked seat ${selectedSeat}. ${userSeat ? 'Your previous seat has been released.' : ''}`,
+        description: `You have booked seat ${selectedSeat} for ${getTimeSlotLabel(selectedTimeSlot)}.`,
       });
 
       setSelectedSeat(null);
+      setSelectedTimeSlot("");
+      setBookingDialogOpen(false);
       fetchData();
     } catch (error) {
       console.error('Error booking seat:', error);
@@ -265,37 +311,43 @@ const SeatArrangement = () => {
     }
   };
 
-  const getSeatInfo = (seatNumber: number) => {
-    const seat = seats.find(s => s.seat_number === seatNumber);
-    if (!seat || !seat.assigned_user_id) return null;
-
-    const profile = profiles.find(p => p.id === seat.assigned_user_id);
-    const subscription = subscriptions.find(s => s.user_id === seat.assigned_user_id);
-
-    return {
-      user: profile,
-      subscription: subscription,
-      seat: seat
-    };
+  const getSeatBookings = (seatNumber: number) => {
+    return seatBookings.filter(b => 
+      b.seat_number === seatNumber && 
+      b.status === 'active'
+    );
   };
 
-  const getPlanColor = (planType: string) => {
-    switch (planType?.toLowerCase()) {
-      case 'full shift': return 'bg-orange-100 text-orange-800 border-orange-300';
+  const getTimeSlotLabel = (timeSlot: string) => {
+    switch (timeSlot) {
+      case 'full_day': return 'Full Day (24/7)';
+      case 'morning': return 'Morning (8AM-2PM)';
+      case 'evening': return 'Evening (2PM-8PM)';
+      case 'night': return 'Night (8PM-8AM)';
+      default: return timeSlot;
+    }
+  };
+
+  const getTimeSlotColor = (timeSlot: string) => {
+    switch (timeSlot) {
+      case 'full_day': return 'bg-blue-100 text-blue-800 border-blue-300';
       case 'morning': return 'bg-purple-100 text-purple-800 border-purple-300';
       case 'evening': return 'bg-green-100 text-green-800 border-green-300';
-      case 'full day': return 'bg-blue-100 text-blue-800 border-blue-300';
+      case 'night': return 'bg-indigo-100 text-indigo-800 border-indigo-300';
       default: return 'bg-gray-100 text-gray-800 border-gray-300';
     }
   };
 
   const getSeatStatus = (seatNumber: number) => {
-    const seat = seats.find(s => s.seat_number === seatNumber);
+    const bookings = getSeatBookings(seatNumber);
+    const userHasBooking = userBookings.some(b => b.seat_number === seatNumber && b.status === 'active');
+    const availableSlots = getAvailableTimeSlots(seatNumber);
     
-    if (seatNumber === userSeat) return 'my-seat';
-    if (!seat || seat.status === 'occupied') return 'booked';
+    if (userHasBooking) return 'my-seat';
+    if (bookings.length === 4) return 'fully-booked'; // All time slots taken
+    if (bookings.length > 0) return 'partially-booked';
     if (selectedSeat === seatNumber) return 'selected';
-    if (!canSelectSeat(seatNumber)) return 'restricted';
+    if (availableSlots.length === 0) return 'restricted';
     return 'available';
   };
 
@@ -304,43 +356,52 @@ const SeatArrangement = () => {
     if (status === 'selected') return 'bg-yellow-200 text-yellow-900 border-yellow-400';
     if (status === 'restricted') return 'bg-gray-200 text-gray-500 border-gray-400 cursor-not-allowed opacity-60';
     if (status === 'available') return 'bg-green-100 text-green-800 border-green-300 hover:bg-green-200 cursor-pointer';
+    if (status === 'partially-booked') return 'bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-200 cursor-pointer';
+    if (status === 'fully-booked') return 'bg-red-100 text-red-800 border-red-300 cursor-not-allowed';
     
-    // For occupied seats, get plan color
-    if (seatNumber) {
-      const seatInfo = getSeatInfo(seatNumber);
-      if (seatInfo?.subscription?.plans) {
-        return getPlanColor(seatInfo.subscription.plans.type) + ' cursor-not-allowed';
-      }
-    }
-    
-    return 'bg-red-100 text-red-800 border-red-300 cursor-not-allowed';
+    return 'bg-gray-100 text-gray-800 border-gray-300';
   };
 
   const renderSeat = (seatNumber: number) => {
-    const seatInfo = getSeatInfo(seatNumber);
+    const bookings = getSeatBookings(seatNumber);
     const status = getSeatStatus(seatNumber);
     const seatColor = getSeatColor(status, seatNumber);
-    const isRestricted = status === 'restricted';
+    const isDisabled = status === 'fully-booked' || status === 'restricted';
+    const occupiedSlots = bookings.map(b => b.time_slot);
+    const availableSlots = getAvailableTimeSlots(seatNumber);
     
     return (
       <button
         key={seatNumber}
         onClick={() => handleSeatClick(seatNumber)}
-        disabled={status === 'booked' || status === 'my-seat' || isRestricted}
+        disabled={isDisabled}
         className={`
-          w-12 h-12 rounded-lg border-2 text-xs font-medium
+          w-16 h-16 rounded-lg border-2 text-xs font-medium
           flex flex-col items-center justify-center transition-colors relative
           ${seatColor}
         `}
       >
-        {isRestricted && (
+        {status === 'restricted' && (
           <Lock className="absolute top-0 right-0 h-3 w-3 text-gray-400 transform translate-x-1 -translate-y-1" />
         )}
-        <span className="font-bold">{seatNumber}</span>
-        {seatInfo?.user && (
-          <span className="text-[8px] leading-none truncate w-full text-center">
-            {seatInfo.user.name.split(' ')[0]}
-          </span>
+        {status === 'my-seat' && (
+          <User className="absolute top-0 right-0 h-3 w-3 text-white transform translate-x-1 -translate-y-1" />
+        )}
+        <span className="font-bold text-sm">{seatNumber}</span>
+        {bookings.length > 0 && (
+          <div className="flex flex-wrap justify-center gap-0.5 mt-1">
+            {occupiedSlots.map((slot, idx) => (
+              <div
+                key={idx}
+                className={`w-2 h-2 rounded-full ${getTimeSlotColor(slot).split(' ')[0]}`}
+              />
+            ))}
+          </div>
+        )}
+        {availableSlots.length > 0 && status === 'available' && (
+          <div className="text-[8px] text-green-600 leading-none mt-1">
+            {availableSlots.length} slot{availableSlots.length > 1 ? 's' : ''}
+          </div>
         )}
       </button>
     );
@@ -355,8 +416,9 @@ const SeatArrangement = () => {
   }
 
   const totalSeats = 40; // Fixed total seats
-  const occupiedSeats = seats.filter(seat => seat.status === 'occupied').length;
-  const availableSeats = totalSeats - occupiedSeats;
+  const totalBookings = seatBookings.filter(b => b.status === 'active').length;
+  const uniqueOccupiedSeats = new Set(seatBookings.filter(b => b.status === 'active').map(b => b.seat_number)).size;
+  const availableSeats = totalSeats - uniqueOccupiedSeats;
 
   return (
     <div className="space-y-6">
@@ -380,20 +442,42 @@ const SeatArrangement = () => {
           <CardContent>
             <div className="grid md:grid-cols-2 gap-4">
               <div className="p-3 bg-white rounded-lg border">
-                <p className="text-sm font-medium text-gray-700">Seat Selection Available</p>
-                <p className="text-xs text-gray-600">
-                  {userSubscription.plans.type.toLowerCase() === 'morning' && 'During 8:00 AM - 2:00 PM'}
-                  {userSubscription.plans.type.toLowerCase() === 'evening' && 'During 2:00 PM - 8:00 PM'}
-                  {userSubscription.plans.type.toLowerCase() === 'full shift' && 'During 8:00 AM - 8:00 PM'}
-                  {userSubscription.plans.type.toLowerCase() === 'full day' && '24/7 Access'}
-                </p>
-              </div>
-              {userSeat && (
-                <div className="p-3 bg-white rounded-lg border">
-                  <p className="text-sm font-medium text-gray-700">Your Current Seat</p>
-                  <p className="text-lg font-bold text-blue-600">Seat {userSeat}</p>
+                <p className="text-sm font-medium text-gray-700">Your Bookings</p>
+                <div className="space-y-1 mt-2">
+                  {userBookings.length > 0 ? (
+                    userBookings.map((booking) => (
+                      <div key={booking.id} className="flex items-center justify-between">
+                        <span className="text-sm">Seat {booking.seat_number}</span>
+                        <Badge className={getTimeSlotColor(booking.time_slot)} variant="outline">
+                          {getTimeSlotLabel(booking.time_slot)}
+                        </Badge>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-gray-600">No active bookings</p>
+                  )}
                 </div>
-              )}
+              </div>
+              <div className="p-3 bg-white rounded-lg border">
+                <p className="text-sm font-medium text-gray-700">Available Slots</p>
+                <p className="text-xs text-gray-600 mt-1">
+                  You can book up to 4 different time slots per subscription
+                </p>
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {['morning', 'evening', 'night', 'full_day'].map((slot) => {
+                    const hasSlot = userBookings.some(b => b.time_slot === slot);
+                    return (
+                      <Badge 
+                        key={slot}
+                        variant={hasSlot ? "default" : "outline"}
+                        className={hasSlot ? getTimeSlotColor(slot) : "text-gray-400"}
+                      >
+                        {getTimeSlotLabel(slot)}
+                      </Badge>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -436,8 +520,8 @@ const SeatArrangement = () => {
         <Card>
           <CardContent className="flex items-center justify-center p-6">
             <div className="text-center">
-              <div className="text-2xl font-bold text-red-600">{occupiedSeats}</div>
-              <div className="text-sm text-gray-600">Occupied</div>
+              <div className="text-2xl font-bold text-red-600">{totalBookings}</div>
+              <div className="text-sm text-gray-600">Total Bookings</div>
             </div>
           </CardContent>
         </Card>
@@ -445,40 +529,40 @@ const SeatArrangement = () => {
         <Card>
           <CardContent className="flex items-center justify-center p-6">
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{userSeat || 'None'}</div>
-              <div className="text-sm text-gray-600">My Seat</div>
+              <div className="text-2xl font-bold text-blue-600">{userBookings.length}</div>
+              <div className="text-sm text-gray-600">My Bookings</div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Current Pricing Structure */}
+      {/* Time Slot Information */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
-            <Users className="h-5 w-5 mr-2" />
-            Available Plans
+            <Clock className="h-5 w-5 mr-2" />
+            Time Slot Information
           </CardTitle>
           <CardDescription>
-            Current pricing and available time slots
+            Understanding the different time slots available for booking
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="p-4 bg-orange-50 rounded-lg border">
-              <h4 className="font-semibold text-orange-900">Full Shift</h4>
-              <p className="text-sm text-orange-700">8 AM - 8 PM</p>
-              <div className="w-4 h-4 bg-orange-100 border border-orange-300 rounded mt-2"></div>
-            </div>
             <div className="p-4 bg-purple-50 rounded-lg border">
               <h4 className="font-semibold text-purple-900">Morning</h4>
-              <p className="text-sm text-purple-700">8 AM - 2 PM</p>
+              <p className="text-sm text-purple-700">8:00 AM - 2:00 PM</p>
               <div className="w-4 h-4 bg-purple-100 border border-purple-300 rounded mt-2"></div>
             </div>
             <div className="p-4 bg-green-50 rounded-lg border">
               <h4 className="font-semibold text-green-900">Evening</h4>
-              <p className="text-sm text-green-700">2 PM - 8 PM</p>
+              <p className="text-sm text-green-700">2:00 PM - 8:00 PM</p>
               <div className="w-4 h-4 bg-green-100 border border-green-300 rounded mt-2"></div>
+            </div>
+            <div className="p-4 bg-indigo-50 rounded-lg border">
+              <h4 className="font-semibold text-indigo-900">Night</h4>
+              <p className="text-sm text-indigo-700">8:00 PM - 8:00 AM</p>
+              <div className="w-4 h-4 bg-indigo-100 border border-indigo-300 rounded mt-2"></div>
             </div>
             <div className="p-4 bg-blue-50 rounded-lg border">
               <h4 className="font-semibold text-blue-900">Full Day</h4>
@@ -497,7 +581,7 @@ const SeatArrangement = () => {
             First Floor Layout (19 Seats)
           </CardTitle>
           <CardDescription>
-            Corner seats (1,2) at top-left, with vertical columns A, B, C and central door - Click on an available seat to select and book it
+            Corner seats (1,2) at top-left, with vertical columns A, B, C and central door - Click on seats to book specific time slots
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -303,6 +303,53 @@ export type Database = {
           },
         ]
       }
+      seat_bookings: {
+        Row: {
+          created_at: string
+          end_date: string
+          id: string
+          seat_number: number
+          start_date: string
+          status: string
+          subscription_id: string
+          time_slot: Database["public"]["Enums"]["time_slot_type"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          end_date: string
+          id?: string
+          seat_number: number
+          start_date: string
+          status?: string
+          subscription_id: string
+          time_slot: Database["public"]["Enums"]["time_slot_type"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          end_date?: string
+          id?: string
+          seat_number?: number
+          start_date?: string
+          status?: string
+          subscription_id?: string
+          time_slot?: Database["public"]["Enums"]["time_slot_type"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seat_bookings_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       seats: {
         Row: {
           assigned_user_id: string | null
@@ -350,7 +397,6 @@ export type Database = {
           payment_date: string | null
           payment_id: string | null
           plan_id: string
-          seat_id: string | null
           start_date: string
           status: string
           updated_at: string
@@ -364,7 +410,6 @@ export type Database = {
           payment_date?: string | null
           payment_id?: string | null
           plan_id: string
-          seat_id?: string | null
           start_date: string
           status?: string
           updated_at?: string
@@ -378,7 +423,6 @@ export type Database = {
           payment_date?: string | null
           payment_id?: string | null
           plan_id?: string
-          seat_id?: string | null
           start_date?: string
           status?: string
           updated_at?: string
@@ -397,13 +441,6 @@ export type Database = {
             columns: ["plan_id"]
             isOneToOne: false
             referencedRelation: "plans"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "subscriptions_seat_id_fkey"
-            columns: ["seat_id"]
-            isOneToOne: false
-            referencedRelation: "seats"
             referencedColumns: ["id"]
           },
           {
@@ -543,13 +580,40 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_user_seat_booking: {
+        Args: {
+          _user_id: string
+          _time_slot: Database["public"]["Enums"]["time_slot_type"]
+        }
+        Returns: {
+          booking_id: string
+          seat_number: number
+          start_date: string
+          end_date: string
+        }[]
+      }
       is_admin: {
         Args: { user_id?: string }
         Returns: boolean
       }
+      is_seat_available: {
+        Args: {
+          _seat_number: number
+          _time_slot: Database["public"]["Enums"]["time_slot_type"]
+          _start_date: string
+          _end_date: string
+          _exclude_booking_id?: string
+        }
+        Returns: boolean
+      }
+      release_expired_seat_bookings: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
     }
     Enums: {
       food_category: "snacks" | "beverages" | "meals" | "desserts" | "healthy"
+      time_slot_type: "full_day" | "morning" | "evening" | "night"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -678,6 +742,7 @@ export const Constants = {
   public: {
     Enums: {
       food_category: ["snacks", "beverages", "meals", "desserts", "healthy"],
+      time_slot_type: ["full_day", "morning", "evening", "night"],
     },
   },
 } as const
