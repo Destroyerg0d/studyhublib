@@ -59,12 +59,11 @@ const FeesManagement = () => {
         .from('payments')
         .select(`
           *,
-          plan_id,
           plans (
             name,
             price
           ),
-          profiles!inner (
+          profiles!payments_user_id_fkey (
             name,
             email
           )
