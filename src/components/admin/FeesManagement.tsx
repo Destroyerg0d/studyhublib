@@ -64,7 +64,7 @@ const FeesManagement = () => {
             name,
             price
           ),
-          profiles!payments_user_id_fkey (
+          profiles!inner (
             name,
             email
           )
