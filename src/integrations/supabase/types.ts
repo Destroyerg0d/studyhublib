@@ -59,6 +59,63 @@ export type Database = {
         }
         Relationships: []
       }
+      canteen_orders: {
+        Row: {
+          created_at: string
+          delivered_at: string | null
+          estimated_time: number | null
+          id: string
+          items: Json
+          order_number: string
+          paid_at: string | null
+          payment_status: string
+          razorpay_order_id: string | null
+          razorpay_payment_id: string | null
+          razorpay_signature: string | null
+          special_instructions: string | null
+          status: string
+          total_amount: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          delivered_at?: string | null
+          estimated_time?: number | null
+          id?: string
+          items?: Json
+          order_number: string
+          paid_at?: string | null
+          payment_status?: string
+          razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
+          razorpay_signature?: string | null
+          special_instructions?: string | null
+          status?: string
+          total_amount: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          delivered_at?: string | null
+          estimated_time?: number | null
+          id?: string
+          items?: Json
+          order_number?: string
+          paid_at?: string | null
+          payment_status?: string
+          razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
+          razorpay_signature?: string | null
+          special_instructions?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       holidays: {
         Row: {
           created_at: string
@@ -580,6 +637,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_order_number: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_user_seat_booking: {
         Args: {
           _user_id: string

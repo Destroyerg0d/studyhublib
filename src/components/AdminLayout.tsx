@@ -18,6 +18,7 @@ import {
   FileText,
   GraduationCap,
   UtensilsCrossed,
+  ShoppingCart,
 } from "lucide-react";
 
 const AdminLayout = ({ children }: { children: React.ReactNode }) => {
@@ -40,6 +41,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
     { path: "/admin/fees", icon: CreditCard, label: "Fees Management" },
     { path: "/admin/tuition", icon: GraduationCap, label: "Tuition Management" },
     { path: "/admin/canteen", icon: UtensilsCrossed, label: "Canteen Management" },
+    { path: "/admin/canteen-orders", icon: ShoppingCart, label: "Canteen Orders" },
     { path: "/admin/verification", icon: CheckCircle, label: "Verification" },
   ];
 

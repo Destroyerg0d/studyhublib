@@ -3,7 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Coffee, ShoppingCart, Plus, Minus, Utensils, Clock, Truck, Star } from "lucide-react";
+import { useCanteenRazorpay } from "@/hooks/useCanteenRazorpay";
+import { Coffee, ShoppingCart, Plus, Minus, Utensils, Clock, Truck, Star, CreditCard } from "lucide-react";
 
 interface MenuItem {
   id: string;
@@ -17,6 +18,7 @@ interface MenuItem {
 
 const Canteen = () => {
   const { toast } = useToast();
+  const { createOrder, isLoading } = useCanteenRazorpay();
   const [cart, setCart] = useState<{ [key: string]: number }>({});
 
   const menuItems: MenuItem[] = [
@@ -79,7 +81,7 @@ const Canteen = () => {
     return Object.values(cart).reduce((total, quantity) => total + quantity, 0);
   };
 
-  const placeOrder = () => {
+  const placeOrder = async () => {
     if (getTotalItems() === 0) {
       toast({
         title: "Cart is empty",
@@ -89,11 +91,26 @@ const Canteen = () => {
       return;
     }
 
-    toast({
-      title: "Order placed successfully!",
-      description: `Your order for ₹${getTotalPrice()} has been placed. It will be delivered to your seat.`,
+    const cartItems = Object.entries(cart).map(([itemId, quantity]) => {
+      const item = menuItems.find(item => item.id === itemId);
+      return {
+        id: itemId,
+        name: item?.name || '',
+        price: item?.price || 0,
+        quantity
+      };
     });
-    setCart({});
+
+    await createOrder({
+      items: cartItems,
+      totalAmount: getTotalPrice(),
+      onSuccess: () => {
+        setCart({});
+      },
+      onError: (error) => {
+        console.error('Order failed:', error);
+      }
+    });
   };
 
   return (
@@ -137,8 +154,10 @@ const Canteen = () => {
                 onClick={placeOrder} 
                 variant="secondary"
                 className="font-semibold"
+                disabled={isLoading}
               >
-                Place Order
+                <CreditCard className="h-4 w-4 mr-2" />
+                {isLoading ? "Processing..." : "Pay & Order"}
               </Button>
             </div>
           </CardContent>
