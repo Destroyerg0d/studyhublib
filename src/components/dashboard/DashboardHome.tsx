@@ -1,8 +1,12 @@
 
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 import {
   Calendar,
@@ -13,10 +17,165 @@ import {
   Clock,
   IndianRupee,
   GraduationCap,
+  TrendingUp,
 } from "lucide-react";
+
+interface UserActivity {
+  id: string;
+  type: string;
+  message: string;
+  time: string;
+  status: string;
+}
+
+interface UserStats {
+  currentSeat: string | null;
+  nextPaymentDue: string | null;
+  activeSubscription: boolean;
+  totalPayments: number;
+}
 
 const DashboardHome = () => {
   const { profile } = useAuth();
+  const [userStats, setUserStats] = useState<UserStats>({
+    currentSeat: null,
+    nextPaymentDue: null,
+    activeSubscription: false,
+    totalPayments: 0
+  });
+  const [recentActivities, setRecentActivities] = useState<UserActivity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  const fetchUserData = async () => {
+    if (!profile?.id) return;
+
+    try {
+      // Fetch current seat booking
+      const { data: seatData, error: seatError } = await supabase
+        .from('seat_bookings')
+        .select('seat_number, time_slot, start_date, end_date')
+        .eq('user_id', profile.id)
+        .eq('status', 'active')
+        .gte('end_date', new Date().toISOString().split('T')[0])
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (seatError) throw seatError;
+
+      // Fetch active subscription
+      const { data: subscriptionData, error: subscriptionError } = await supabase
+        .from('subscriptions')
+        .select('end_date, status')
+        .eq('user_id', profile.id)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (subscriptionError) throw subscriptionError;
+
+      // Fetch total payments
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from('payments')
+        .select('amount')
+        .eq('user_id', profile.id)
+        .eq('status', 'paid');
+
+      if (paymentsError) throw paymentsError;
+
+      // Fetch recent activities
+      const activities: UserActivity[] = [];
+
+      // Add seat booking activities
+      if (seatData?.length) {
+        activities.push({
+          id: '1',
+          type: 'seat',
+          message: `Seat ${seatData[0].seat_number} booked for ${seatData[0].time_slot}`,
+          time: new Date(seatData[0].start_date).toLocaleDateString(),
+          status: 'active'
+        });
+      }
+
+      // Add payment activities
+      if (paymentsData?.length) {
+        activities.push({
+          id: '2',
+          type: 'payment',
+          message: `Last payment of ₹${paymentsData[paymentsData.length - 1]?.amount || 0} received`,
+          time: 'Recent',
+          status: 'completed'
+        });
+      }
+
+      // Add verification status
+      activities.push({
+        id: '3',
+        type: 'verification',
+        message: profile.verified ? 'Account verified successfully' : 'Verification pending',
+        time: profile.verified ? 'Completed' : 'Pending',
+        status: profile.verified ? 'completed' : 'pending'
+      });
+
+      const totalPayments = paymentsData?.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0) || 0;
+      const currentSeat = seatData?.length ? `${seatData[0].seat_number} (${seatData[0].time_slot})` : null;
+      const activeSubscription = subscriptionData?.length > 0;
+      const nextPaymentDue = subscriptionData?.length ? new Date(subscriptionData[0].end_date).toLocaleDateString() : null;
+
+      setUserStats({
+        currentSeat,
+        nextPaymentDue,
+        activeSubscription,
+        totalPayments
+      });
+
+      setRecentActivities(activities);
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch user data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUserData();
+
+    // Set up real-time subscriptions
+    const seatBookingsChannel = supabase
+      .channel('user-seat-bookings')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'seat_bookings', filter: `user_id=eq.${profile?.id}` },
+        () => fetchUserData()
+      )
+      .subscribe();
+
+    const subscriptionsChannel = supabase
+      .channel('user-subscriptions')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'subscriptions', filter: `user_id=eq.${profile?.id}` },
+        () => fetchUserData()
+      )
+      .subscribe();
+
+    const paymentsChannel = supabase
+      .channel('user-payments')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'payments', filter: `user_id=eq.${profile?.id}` },
+        () => fetchUserData()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(seatBookingsChannel);
+      supabase.removeChannel(subscriptionsChannel);
+      supabase.removeChannel(paymentsChannel);
+    };
+  }, [profile?.id]);
 
   const quickActions = [
     {
@@ -86,7 +245,7 @@ const DashboardHome = () => {
         )}
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Account Status</CardTitle>
@@ -97,33 +256,52 @@ const DashboardHome = () => {
                 {profile?.verified ? 'Verified' : 'Pending'}
               </div>
               <p className="text-xs text-muted-foreground">
-                {profile?.verified ? 'Account verified' : 'Verification required'}
+                {profile?.verified ? 'Full access enabled' : 'Verification required'}
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">User Role</CardTitle>
+              <CardTitle className="text-sm font-medium">Current Seat</CardTitle>
               <Users className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold capitalize">{profile?.role}</div>
+              <div className="text-2xl font-bold">
+                {loading ? "..." : userStats.currentSeat || "None"}
+              </div>
               <p className="text-xs text-muted-foreground">
-                Access level
+                {userStats.currentSeat ? 'Active booking' : 'No active seat'}
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Current Slot</CardTitle>
-              <Clock className="h-4 w-4 text-blue-600" />
+              <CardTitle className="text-sm font-medium">Subscription</CardTitle>
+              <TrendingUp className="h-4 w-4 text-purple-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">Day Time</div>
+              <div className={`text-2xl font-bold ${userStats.activeSubscription ? 'text-green-600' : 'text-red-600'}`}>
+                {loading ? "..." : userStats.activeSubscription ? 'Active' : 'Expired'}
+              </div>
               <p className="text-xs text-muted-foreground">
-                8:00 AM - 10:00 PM
+                {userStats.nextPaymentDue ? `Expires ${userStats.nextPaymentDue}` : 'Renew subscription'}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Payments</CardTitle>
+              <IndianRupee className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {loading ? "..." : `₹${userStats.totalPayments.toLocaleString()}`}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Lifetime total
               </p>
             </CardContent>
           </Card>
@@ -162,21 +340,32 @@ const DashboardHome = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Account created successfully</p>
-                  <p className="text-xs text-gray-500">Welcome to The Study Hub!</p>
-                </div>
-              </div>
-              {profile?.verified && (
-                <div className="flex items-center">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Account verified</p>
-                    <p className="text-xs text-gray-500">Full access enabled</p>
+              {loading ? (
+                <div className="text-center text-gray-500">Loading activities...</div>
+              ) : recentActivities.length > 0 ? (
+                recentActivities.map((activity) => (
+                  <div key={activity.id} className="flex items-start space-x-3">
+                    <div className={`w-2 h-2 rounded-full mt-2 ${
+                      activity.status === 'completed' ? 'bg-green-500' : 
+                      activity.status === 'active' ? 'bg-blue-500' : 'bg-yellow-500'
+                    }`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{activity.message}</p>
+                      <div className="flex items-center justify-between mt-1">
+                        <p className="text-xs text-gray-500">{activity.time}</p>
+                        <Badge className={
+                          activity.status === 'completed' ? 'bg-green-100 text-green-800' :
+                          activity.status === 'active' ? 'bg-blue-100 text-blue-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }>
+                          {activity.status}
+                        </Badge>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ))
+              ) : (
+                <div className="text-center text-gray-500">No recent activities</div>
               )}
             </div>
           </CardContent>

@@ -100,13 +100,17 @@ const AdminHome = () => {
 
   useEffect(() => {
     fetchDashboardStats();
+    fetchRecentActivities();
 
     // Set up real-time subscriptions
     const profilesChannel = supabase
       .channel('admin-dashboard-profiles')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'profiles' },
-        () => fetchDashboardStats()
+        () => {
+          fetchDashboardStats();
+          fetchRecentActivities();
+        }
       )
       .subscribe();
 
@@ -114,7 +118,10 @@ const AdminHome = () => {
       .channel('admin-dashboard-subscriptions')
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'subscriptions' },
-        () => fetchDashboardStats()
+        () => {
+          fetchDashboardStats();
+          fetchRecentActivities();
+        }
       )
       .subscribe();
 
@@ -126,11 +133,30 @@ const AdminHome = () => {
       )
       .subscribe();
 
+    const seatBookingsChannel = supabase
+      .channel('admin-dashboard-seat-bookings')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'seat_bookings' },
+        () => fetchRecentActivities()
+      )
+      .subscribe();
+
     const verificationsChannel = supabase
       .channel('admin-dashboard-verifications')
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'verification_requests' },
-        () => fetchDashboardStats()
+        () => {
+          fetchDashboardStats();
+          fetchRecentActivities();
+        }
+      )
+      .subscribe();
+
+    const paymentsChannel = supabase
+      .channel('admin-dashboard-payments')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'payments' },
+        () => fetchRecentActivities()
       )
       .subscribe();
 
@@ -138,7 +164,9 @@ const AdminHome = () => {
       supabase.removeChannel(profilesChannel);
       supabase.removeChannel(subscriptionsChannel);
       supabase.removeChannel(seatsChannel);
+      supabase.removeChannel(seatBookingsChannel);
       supabase.removeChannel(verificationsChannel);
+      supabase.removeChannel(paymentsChannel);
     };
   }, []);
 
@@ -146,15 +174,15 @@ const AdminHome = () => {
     {
       title: "Total Students",
       value: loading ? "..." : stats.totalStudents.toString(),
-      change: "+12%",
-      changeType: "increase" as const,
+      change: "Real-time",
+      changeType: "neutral" as const,
       icon: Users,
       color: "text-blue-600",
     },
     {
       title: "Monthly Revenue",
       value: loading ? "..." : `₹${stats.monthlyRevenue.toLocaleString()}`,
-      change: "+8%",
+      change: "This month",
       changeType: "increase" as const,
       icon: IndianRupee,
       color: "text-green-600",
@@ -170,45 +198,100 @@ const AdminHome = () => {
     {
       title: "Pending Verifications",
       value: loading ? "..." : stats.pendingVerifications.toString(),
-      change: "-3",
-      changeType: "decrease" as const,
+      change: "Requires action",
+      changeType: stats.pendingVerifications > 0 ? "increase" as const : "neutral" as const,
       icon: AlertTriangle,
       color: "text-orange-600",
     },
   ];
 
-  const recentActivities = [
-    {
-      type: "verification",
-      message: "New verification request from Rahul Kumar",
-      time: "2 hours ago",
-      status: "pending",
-    },
-    {
-      type: "payment",
-      message: "Payment received from Priya Sharma - ₹1,000",
-      time: "4 hours ago",
-      status: "completed",
-    },
-    {
-      type: "seat",
-      message: "Seat A-15 booked by Amit Singh",
-      time: "6 hours ago",
-      status: "completed",
-    },
-    {
-      type: "verification",
-      message: "Verification approved for Sneha Patel",
-      time: "1 day ago",
-      status: "completed",
-    },
-    {
-      type: "payment",
-      message: "Payment pending from Vikash Gupta - ₹1,000",
-      time: "2 days ago",
-      status: "pending",
-    },
-  ];
+  const [recentActivities, setRecentActivities] = useState<any[]>([]);
+
+  const fetchRecentActivities = async () => {
+    try {
+      const activities: any[] = [];
+
+      // Fetch recent payments
+      const { data: paymentsData } = await supabase
+        .from('payments')
+        .select(`
+          *,
+          profiles!payments_user_id_fkey (name)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+      paymentsData?.forEach(payment => {
+        const profile = Array.isArray(payment.profiles) ? payment.profiles[0] : payment.profiles;
+        activities.push({
+          type: "payment",
+          message: `Payment ${payment.status === 'paid' ? 'received' : 'pending'} from ${profile?.name || 'Unknown'} - ₹${payment.amount}`,
+          time: new Date(payment.created_at).toLocaleDateString(),
+          status: payment.status === 'paid' ? 'completed' : 'pending',
+        });
+      });
+
+      // Fetch recent seat bookings with user info
+      const { data: seatsData } = await supabase
+        .from('seat_bookings')
+        .select(`
+          *
+        `)
+        .order('created_at', { ascending: false })
+        .limit(2);
+
+      // Get user names for seat bookings
+      if (seatsData?.length) {
+        const userIds = seatsData.map(booking => booking.user_id);
+        const { data: usersData } = await supabase
+          .from('profiles')
+          .select('id, name')
+          .in('id', userIds);
+
+        seatsData.forEach(booking => {
+          const user = usersData?.find(u => u.id === booking.user_id);
+          activities.push({
+            type: "seat",
+            message: `Seat ${booking.seat_number} booked by ${user?.name || 'Unknown'}`,
+            time: new Date(booking.created_at).toLocaleDateString(),
+            status: "completed",
+          });
+        });
+      }
+
+      // Fetch recent verification requests with user info
+      const { data: verificationsData } = await supabase
+        .from('verification_requests')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(2);
+
+      // Get user names for verification requests
+      if (verificationsData?.length) {
+        const userIds = verificationsData.map(verification => verification.user_id);
+        const { data: usersData } = await supabase
+          .from('profiles')
+          .select('id, name')
+          .in('id', userIds);
+
+        verificationsData.forEach(verification => {
+          const user = usersData?.find(u => u.id === verification.user_id);
+          activities.push({
+            type: "verification",
+            message: `Verification ${verification.status === 'approved' ? 'approved' : verification.status === 'rejected' ? 'rejected' : 'requested'} for ${user?.name || 'Unknown'}`,
+            time: new Date(verification.created_at).toLocaleDateString(),
+            status: verification.status,
+          });
+        });
+      }
+
+      // Sort all activities by time and take the most recent ones
+      activities.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+      setRecentActivities(activities.slice(0, 5));
+    } catch (error) {
+      console.error('Error fetching recent activities:', error);
+    }
+  };
 
   const quickActions = [
     {
@@ -280,7 +363,7 @@ const AdminHome = () => {
                 <CardContent>
                   <div className="text-2xl font-bold">{stat.value}</div>
                   <p className={`text-xs ${getChangeColor(stat.changeType)}`}>
-                    {stat.change} from last month
+                    {stat.change}
                   </p>
                 </CardContent>
               </Card>
