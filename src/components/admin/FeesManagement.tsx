@@ -62,22 +62,28 @@ const FeesManagement = () => {
           plans (
             name,
             price
-          ),
-          profiles!payments_user_id_fkey (
-            name,
-            email
           )
         `)
         .order('created_at', { ascending: false });
 
+      // Fetch user profiles separately
+      const userIds = data?.map(payment => payment.user_id) || [];
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, name, email')
+        .in('id', userIds);
+
       if (error) throw error;
       
       // Transform data to match interface
-      const transformedData = data?.map(payment => ({
-        ...payment,
-        plan: payment.plans,
-        user: Array.isArray(payment.profiles) ? payment.profiles[0] : payment.profiles
-      })) || [];
+      const transformedData = data?.map(payment => {
+        const userProfile = profilesData?.find(profile => profile.id === payment.user_id);
+        return {
+          ...payment,
+          plan: payment.plans,
+          user: userProfile
+        };
+      }) || [];
       
       setPayments(transformedData);
     } catch (error) {
