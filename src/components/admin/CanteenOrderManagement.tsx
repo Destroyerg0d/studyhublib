@@ -48,32 +48,41 @@ const CanteenOrderManagement = () => {
 
   const fetchOrders = async () => {
     try {
-      let query = supabase
+      let { data, error } = await supabase
         .from('canteen_orders')
-        .select(`
-          *,
-          profiles:user_id (
-            name,
-            email
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (filter !== 'all') {
-        query = query.eq('status', filter);
+        const { data: filteredData, error: filterError } = await supabase
+          .from('canteen_orders')
+          .select('*')
+          .eq('status', filter)
+          .order('created_at', { ascending: false });
+        
+        data = filteredData;
+        error = filterError;
       }
-
-      const { data, error } = await query;
 
       if (error) {
         throw error;
       }
 
-      const typedOrders = (data || []).map(order => ({
-        ...order,
-        items: order.items as CanteenOrder['items'],
-        profiles: order.profiles && !('error' in order.profiles) ? order.profiles : undefined
-      })) as CanteenOrder[];
+      // Fetch user profiles separately
+      const userIds = data?.map(order => order.user_id) || [];
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, name, email')
+        .in('id', userIds);
+
+      const typedOrders = (data || []).map(order => {
+        const userProfile = profilesData?.find(profile => profile.id === order.user_id);
+        return {
+          ...order,
+          items: order.items as CanteenOrder['items'],
+          profiles: userProfile
+        };
+      }) as CanteenOrder[];
       setOrders(typedOrders);
     } catch (error: any) {
       console.error('Error fetching orders:', error);
