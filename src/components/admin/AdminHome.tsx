@@ -58,12 +58,23 @@ const AdminHome = () => {
 
       if (revenueError) throw revenueError;
 
-      // Fetch seat occupancy
+      // Fetch seat occupancy based on active bookings
       const { data: seatsData, error: seatsError } = await supabase
         .from('seats')
-        .select('id, status');
+        .select('seat_number, row_letter');
 
       if (seatsError) throw seatsError;
+
+      // Get active seat bookings for today
+      const today = new Date().toISOString().split('T')[0];
+      const { data: bookingsData, error: bookingsError } = await supabase
+        .from('seat_bookings')
+        .select('seat_number, time_slot')
+        .eq('status', 'active')
+        .lte('start_date', today)
+        .gte('end_date', today);
+
+      if (bookingsError) throw bookingsError;
 
       // Fetch pending verifications
       const { data: verificationData, error: verificationError } = await supabase
@@ -77,7 +88,7 @@ const AdminHome = () => {
       const totalStudents = studentsData?.length || 0;
       const monthlyRevenue = revenueData?.reduce((sum, sub) => sum + (Number(sub.amount_paid) || 0), 0) || 0;
       const totalSeats = seatsData?.length || 0;
-      const occupiedSeats = seatsData?.filter(seat => seat.status === 'occupied').length || 0;
+      const occupiedSeats = bookingsData?.length || 0;
       const pendingVerifications = verificationData?.length || 0;
 
       setStats({
