@@ -17,6 +17,7 @@ interface CreateOrderRequest {
   }>;
   total_amount: number;
   special_instructions?: string;
+  coupon_code?: string;
 }
 
 interface VerifyPaymentRequest {
@@ -60,7 +61,7 @@ serve(async (req) => {
 
     if (req.method === "POST") {
       // Create order
-      const { items, total_amount, special_instructions }: CreateOrderRequest = await req.json();
+      const { items, total_amount, special_instructions, coupon_code }: CreateOrderRequest = await req.json();
 
       if (!items || items.length === 0) {
         throw new Error("No items in order");
@@ -68,6 +69,40 @@ serve(async (req) => {
 
       if (!total_amount || total_amount <= 0) {
         throw new Error("Invalid total amount");
+      }
+
+      let finalAmount = total_amount
+      let discountAmount = 0
+      let couponId = null
+      let originalAmount = total_amount
+
+      // Validate coupon if provided
+      if (coupon_code) {
+        const { data: couponValidation, error: couponError } = await supabaseService
+          .rpc('validate_coupon', {
+            _coupon_code: coupon_code,
+            _user_id: user.id,
+            _order_type: 'canteen',
+            _amount: total_amount
+          });
+
+        if (couponError) {
+          throw new Error('Coupon validation failed: ' + couponError.message);
+        }
+
+        if (!couponValidation || couponValidation.length === 0) {
+          throw new Error('Invalid coupon validation response');
+        }
+
+        const validation = couponValidation[0];
+        
+        if (!validation.valid) {
+          throw new Error(validation.error_message || 'Invalid coupon code');
+        }
+
+        finalAmount = validation.final_amount;
+        discountAmount = validation.discount_amount;
+        couponId = validation.coupon_id;
       }
 
       // Initialize Razorpay
@@ -78,10 +113,15 @@ serve(async (req) => {
 
       // Create Razorpay order
       const razorpayOrder = await razorpay.orders.create({
-        amount: Math.round(total_amount * 100), // Convert to paise
+        amount: Math.round(finalAmount * 100), // Convert to paise
         currency: "INR",
         receipt: `canteen_${Date.now()}`,
         payment_capture: true,
+        notes: {
+          user_id: user.id,
+          coupon_code: coupon_code || '',
+          discount_amount: discountAmount.toString(),
+        },
       });
 
       console.log("Razorpay order created:", razorpayOrder);
@@ -102,7 +142,10 @@ serve(async (req) => {
           user_id: user.id,
           order_number: orderNumberData,
           items: items,
-          total_amount: total_amount,
+          total_amount: finalAmount,
+          original_amount: originalAmount,
+          discount_amount: discountAmount,
+          coupon_id: couponId,
           razorpay_order_id: razorpayOrder.id,
           special_instructions: special_instructions,
           status: 'pending',
@@ -179,6 +222,25 @@ serve(async (req) => {
       if (updateError) {
         console.error("Error updating order:", updateError);
         throw new Error("Failed to update order");
+      }
+
+      // Record coupon usage if coupon was applied
+      if (updatedOrder.coupon_id) {
+        await supabaseService.from('coupon_usage').insert({
+          coupon_id: updatedOrder.coupon_id,
+          user_id: user.id,
+          order_type: 'canteen',
+          order_id: updatedOrder.id,
+          discount_amount: updatedOrder.discount_amount,
+          original_amount: updatedOrder.original_amount,
+          final_amount: updatedOrder.total_amount,
+        });
+
+        // Update coupon usage count
+        await supabaseService
+          .from('coupons')
+          .update({ used_count: supabaseService.raw('used_count + 1') })
+          .eq('id', updatedOrder.coupon_id);
       }
 
       console.log("Payment verified and order updated:", updatedOrder);

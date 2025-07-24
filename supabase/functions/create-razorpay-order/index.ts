@@ -10,6 +10,7 @@ interface CreateOrderRequest {
   plan_id: string
   amount: number
   currency?: string
+  coupon_code?: string
 }
 
 Deno.serve(async (req) => {
@@ -39,7 +40,41 @@ Deno.serve(async (req) => {
     }
 
     if (req.method === 'POST') {
-      const { plan_id, amount, currency = 'INR' }: CreateOrderRequest = await req.json()
+      const { plan_id, amount, currency = 'INR', coupon_code }: CreateOrderRequest = await req.json()
+
+      let finalAmount = amount
+      let discountAmount = 0
+      let couponId = null
+      let originalAmount = amount
+
+      // Validate coupon if provided
+      if (coupon_code) {
+        const { data: couponValidation, error: couponError } = await supabase
+          .rpc('validate_coupon', {
+            _coupon_code: coupon_code,
+            _user_id: user.id,
+            _order_type: 'subscriptions',
+            _amount: amount
+          })
+
+        if (couponError) {
+          throw new Error('Coupon validation failed: ' + couponError.message)
+        }
+
+        if (!couponValidation || couponValidation.length === 0) {
+          throw new Error('Invalid coupon validation response')
+        }
+
+        const validation = couponValidation[0]
+        
+        if (!validation.valid) {
+          throw new Error(validation.error_message || 'Invalid coupon code')
+        }
+
+        finalAmount = validation.final_amount
+        discountAmount = validation.discount_amount
+        couponId = validation.coupon_id
+      }
 
       // Initialize Razorpay
       const razorpay = new Razorpay({
@@ -49,12 +84,14 @@ Deno.serve(async (req) => {
 
       // Create Razorpay order
       const options = {
-        amount: amount * 100, // Convert to paise
+        amount: finalAmount * 100, // Convert to paise
         currency,
         receipt: `order_${Date.now()}`,
         notes: {
           user_id: user.id,
           plan_id,
+          coupon_code: coupon_code || '',
+          discount_amount: discountAmount.toString(),
         },
       }
 
@@ -67,7 +104,10 @@ Deno.serve(async (req) => {
           user_id: user.id,
           razorpay_order_id: razorpayOrder.id,
           plan_id,
-          amount: amount * 100, // Store in paise
+          amount: finalAmount * 100, // Store final amount in paise
+          original_amount: originalAmount * 100, // Store original amount in paise
+          discount_amount: discountAmount * 100, // Store discount in paise
+          coupon_id: couponId,
           currency,
           status: 'created',
           metadata: { razorpay_order: razorpayOrder },
@@ -131,6 +171,25 @@ Deno.serve(async (req) => {
       if (updateError) {
         console.error('Payment update error:', updateError)
         throw new Error('Failed to update payment record')
+      }
+
+      // Record coupon usage if coupon was applied
+      if (payment.coupon_id) {
+        await supabase.from('coupon_usage').insert({
+          coupon_id: payment.coupon_id,
+          user_id: user.id,
+          order_type: 'subscription',
+          order_id: payment.id,
+          discount_amount: payment.discount_amount / 100, // Convert to rupees
+          original_amount: payment.original_amount / 100, // Convert to rupees
+          final_amount: payment.amount / 100, // Convert to rupees
+        })
+
+        // Update coupon usage count
+        await supabase
+          .from('coupons')
+          .update({ used_count: supabase.raw('used_count + 1') })
+          .eq('id', payment.coupon_id)
       }
 
       // Create or update subscription
