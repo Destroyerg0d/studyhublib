@@ -5,20 +5,37 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BookOpen, ArrowLeft, Eye, EyeOff } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { BookOpen, ArrowLeft, Eye, EyeOff, KeyRound } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const { login, register, user, profile } = useAuth();
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+  const [activeTab, setActiveTab] = useState("login");
+  const { login, register, resetPassword, user, profile } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+  const isPasswordReset = searchParams.get('reset') === 'true';
+
+  // Check for password reset on page load
+  useEffect(() => {
+    if (isPasswordReset) {
+      setActiveTab("reset-password");
+      toast({
+        title: "Password Reset",
+        description: "Please enter your new password below.",
+      });
+    }
+  }, [isPasswordReset, toast]);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -133,6 +150,109 @@ const Auth = () => {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsLoading(true);
+    
+    const formData = new FormData(e.currentTarget);
+    const email = formData.get('email') as string;
+
+    console.log('Forgot password form submitted with email:', email);
+
+    try {
+      const result = await resetPassword(email);
+      if (result.success) {
+        toast({
+          title: "Password reset email sent!",
+          description: "Please check your email for instructions to reset your password.",
+        });
+        // Switch back to login tab
+        setActiveTab("login");
+      } else {
+        console.error('Password reset failed:', result.error);
+        toast({
+          title: "Failed to send reset email",
+          description: result.error || "Please check your email address and try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Password reset error:', error);
+      toast({
+        title: "Error",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUpdatePassword = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsLoading(true);
+    
+    const formData = new FormData(e.currentTarget);
+    const password = formData.get('password') as string;
+    const confirmPassword = formData.get('confirmPassword') as string;
+
+    // Basic validation
+    if (password !== confirmPassword) {
+      toast({
+        title: "Password mismatch",
+        description: "Please make sure both passwords match.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    console.log('Updating password');
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: password
+      });
+
+      if (error) {
+        console.error('Password update failed:', error);
+        toast({
+          title: "Failed to update password",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Password updated successfully!",
+          description: "You can now login with your new password.",
+        });
+        // Switch to login tab
+        setActiveTab("login");
+        // Remove the reset parameter from URL
+        navigate('/auth', { replace: true });
+      }
+    } catch (error) {
+      console.error('Password update error:', error);
+      toast({
+        title: "Error",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -152,10 +272,12 @@ const Auth = () => {
             <CardDescription>Access your premium study environment</CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="login" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="login">Login</TabsTrigger>
-                <TabsTrigger value="register">Register</TabsTrigger>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className={`grid w-full ${isPasswordReset ? 'grid-cols-1' : 'grid-cols-3'}`}>
+                {!isPasswordReset && <TabsTrigger value="login">Login</TabsTrigger>}
+                {!isPasswordReset && <TabsTrigger value="register">Register</TabsTrigger>}
+                {!isPasswordReset && <TabsTrigger value="forgot-password">Forgot Password</TabsTrigger>}
+                {isPasswordReset && <TabsTrigger value="reset-password">Reset Password</TabsTrigger>}
               </TabsList>
               
               <TabsContent value="login">
@@ -201,8 +323,17 @@ const Auth = () => {
                   >
                     {isLoading ? "Signing in..." : "Sign In"}
                   </Button>
-                  <div className="text-sm text-gray-600 text-center">
-                    <p>💡 Tip: Use a strong password with at least 6 characters</p>
+                  <div className="text-center space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("forgot-password")}
+                      className="text-sm text-blue-600 hover:text-blue-700 underline"
+                    >
+                      Forgot your password?
+                    </button>
+                    <div className="text-sm text-gray-600">
+                      <p>💡 Tip: Use a strong password with at least 6 characters</p>
+                    </div>
                   </div>
                 </form>
               </TabsContent>
@@ -286,6 +417,114 @@ const Auth = () => {
                   </Button>
                   <div className="text-sm text-gray-600 text-center">
                     <p>💡 Tip: Check your email after registration to verify your account</p>
+                  </div>
+                </form>
+              </TabsContent>
+
+              <TabsContent value="forgot-password">
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                  <div className="text-center space-y-2 mb-4">
+                    <KeyRound className="h-12 w-12 text-blue-600 mx-auto" />
+                    <h3 className="text-lg font-semibold">Reset your password</h3>
+                    <p className="text-sm text-gray-600">
+                      Enter your email address and we'll send you a link to reset your password.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="forgot-email">Email</Label>
+                    <Input
+                      id="forgot-email"
+                      name="email"
+                      type="email"
+                      placeholder="example@gmail.com"
+                      required
+                    />
+                  </div>
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Sending reset email..." : "Send Reset Email"}
+                  </Button>
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("login")}
+                      className="text-sm text-blue-600 hover:text-blue-700 underline"
+                    >
+                      Back to Login
+                    </button>
+                  </div>
+                </form>
+              </TabsContent>
+
+              <TabsContent value="reset-password">
+                <form onSubmit={handleUpdatePassword} className="space-y-4">
+                  <div className="text-center space-y-2 mb-4">
+                    <KeyRound className="h-12 w-12 text-green-600 mx-auto" />
+                    <h3 className="text-lg font-semibold">Set new password</h3>
+                    <p className="text-sm text-gray-600">
+                      Please enter your new password below.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="new-password">New Password</Label>
+                    <div className="relative">
+                      <Input
+                        id="new-password"
+                        name="password"
+                        type={showNewPassword ? "text" : "password"}
+                        placeholder="Enter new password"
+                        required
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                      >
+                        {showNewPassword ? (
+                          <EyeOff className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="confirm-new-password">Confirm New Password</Label>
+                    <div className="relative">
+                      <Input
+                        id="confirm-new-password"
+                        name="confirmPassword"
+                        type={showConfirmNewPassword ? "text" : "password"}
+                        placeholder="Confirm new password"
+                        required
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                        onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}
+                      >
+                        {showConfirmNewPassword ? (
+                          <EyeOff className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Updating password..." : "Update Password"}
+                  </Button>
+                  <div className="text-sm text-gray-600 text-center">
+                    <p>💡 Password must be at least 6 characters long</p>
                   </div>
                 </form>
               </TabsContent>
