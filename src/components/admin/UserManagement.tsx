@@ -18,7 +18,6 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   Search,
   Filter,
-  UserCheck,
   UserX,
   Edit,
   Eye,
@@ -26,6 +25,9 @@ import {
   Users,
   CheckCircle,
   XCircle,
+  Trash2,
+  Shield,
+  ShieldOff,
 } from "lucide-react";
 
 interface User {
@@ -49,6 +51,7 @@ const UserManagement = () => {
   const [selectedFilter, setSelectedFilter] = useState("all");
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const { toast } = useToast();
 
   const fetchUsers = async () => {
@@ -84,8 +87,27 @@ const UserManagement = () => {
     }
   };
 
+  const fetchCurrentUser = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        
+        if (error) throw error;
+        setCurrentUser(data);
+      }
+    } catch (error) {
+      console.error('Error fetching current user:', error);
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
+    fetchCurrentUser();
 
     // Set up real-time subscription
     const channel = supabase
@@ -107,17 +129,52 @@ const UserManagement = () => {
 
   const handleUserAction = async (action: string, userId: string, userName: string) => {
     try {
-      if (action === "Approve") {
+      if (action === "Ban") {
+        // Disable the user's account by setting verified to false
+        const { error } = await supabase
+          .from('profiles')
+          .update({ verified: false })
+          .eq('id', userId);
+        
+        if (error) throw error;
+      } else if (action === "Unban") {
+        // Re-enable the user's account
         const { error } = await supabase
           .from('profiles')
           .update({ verified: true })
           .eq('id', userId);
         
         if (error) throw error;
-      } else if (action === "Suspend") {
+      } else if (action === "Delete") {
+        // Check if trying to delete an admin
+        const userToDelete = users.find(u => u.id === userId);
+        if (userToDelete?.role === 'admin') {
+          toast({
+            title: "Error",
+            description: "Cannot delete admin users",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        // Delete user profile (this will cascade delete related data)
         const { error } = await supabase
           .from('profiles')
-          .update({ verified: false })
+          .delete()
+          .eq('id', userId);
+        
+        if (error) throw error;
+      } else if (action === "MakeAdmin") {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ role: 'admin' })
+          .eq('id', userId);
+        
+        if (error) throw error;
+      } else if (action === "RemoveAdmin") {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ role: 'student' })
           .eq('id', userId);
         
         if (error) throw error;
@@ -313,22 +370,62 @@ const UserManagement = () => {
                         >
                           <Edit className="h-3 w-3" />
                         </Button>
-                        {!user.verified && (
+                        
+                        {/* Ban/Unban Button */}
+                        {user.verified ? (
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleUserAction("Approve", user.id, user.name)}
-                          >
-                            <UserCheck className="h-3 w-3 text-green-600" />
-                          </Button>
-                        )}
-                        {user.verified && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleUserAction("Suspend", user.id, user.name)}
+                            onClick={() => handleUserAction("Ban", user.id, user.name)}
+                            title="Ban user account"
                           >
                             <UserX className="h-3 w-3 text-red-600" />
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleUserAction("Unban", user.id, user.name)}
+                            title="Unban user account"
+                          >
+                            <UserX className="h-3 w-3 text-green-600" />
+                          </Button>
+                        )}
+                        
+                        {/* Admin Role Toggle */}
+                        {user.role !== 'admin' ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleUserAction("MakeAdmin", user.id, user.name)}
+                            title="Make admin"
+                          >
+                            <Shield className="h-3 w-3 text-blue-600" />
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleUserAction("RemoveAdmin", user.id, user.name)}
+                            title="Remove admin"
+                          >
+                            <ShieldOff className="h-3 w-3 text-orange-600" />
+                          </Button>
+                        )}
+                        
+                        {/* Delete Button - Only for non-admin users */}
+                        {user.role !== 'admin' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              if (window.confirm(`Are you sure you want to delete ${user.name}? This action cannot be undone.`)) {
+                                handleUserAction("Delete", user.id, user.name);
+                              }
+                            }}
+                            title="Delete user"
+                          >
+                            <Trash2 className="h-3 w-3 text-red-600" />
                           </Button>
                         )}
                       </div>
