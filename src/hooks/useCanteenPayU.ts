@@ -37,7 +37,7 @@ export const useCanteenPayU = () => {
       }
 
       const script = document.createElement('script');
-      script.src = 'https://sboxcheckout-static.citruspay.com/bolt/run/bolt.min.js';
+      script.src = 'https://checkout-static.citruspay.com/bolt/run/bolt.min.js';
       script.onload = () => resolve(true);
       script.onerror = () => resolve(false);
       document.body.appendChild(script);
