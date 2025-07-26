@@ -188,6 +188,49 @@ const Auth = () => {
     }
   };
 
+  const handleForgotPasswordLink = async () => {
+    const emailInput = document.getElementById('login-email') as HTMLInputElement;
+    const email = emailInput?.value;
+
+    if (!email) {
+      toast({
+        title: "Email required",
+        description: "Please enter your email address first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    console.log('Forgot password link clicked with email:', email);
+
+    try {
+      const result = await resetPassword(email);
+      if (result.success) {
+        toast({
+          title: "Password reset email sent!",
+          description: "Please check your email for instructions to reset your password.",
+        });
+      } else {
+        console.error('Password reset failed:', result.error);
+        toast({
+          title: "Failed to send reset email",
+          description: result.error || "Please check your email address and try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Password reset error:', error);
+      toast({
+        title: "Error",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleUpdatePassword = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
@@ -273,10 +316,9 @@ const Auth = () => {
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className={`grid w-full ${isPasswordReset ? 'grid-cols-1' : 'grid-cols-3'}`}>
+              <TabsList className={`grid w-full ${isPasswordReset ? 'grid-cols-1' : 'grid-cols-2'}`}>
                 {!isPasswordReset && <TabsTrigger value="login">Login</TabsTrigger>}
                 {!isPasswordReset && <TabsTrigger value="register">Register</TabsTrigger>}
-                {!isPasswordReset && <TabsTrigger value="forgot-password">Forgot Password</TabsTrigger>}
                 {isPasswordReset && <TabsTrigger value="reset-password">Reset Password</TabsTrigger>}
               </TabsList>
               
@@ -326,7 +368,7 @@ const Auth = () => {
                   <div className="text-center space-y-2">
                     <button
                       type="button"
-                      onClick={() => setActiveTab("forgot-password")}
+                      onClick={handleForgotPasswordLink}
                       className="text-sm text-blue-600 hover:text-blue-700 underline"
                     >
                       Forgot your password?
@@ -421,43 +463,6 @@ const Auth = () => {
                 </form>
               </TabsContent>
 
-              <TabsContent value="forgot-password">
-                <form onSubmit={handleForgotPassword} className="space-y-4">
-                  <div className="text-center space-y-2 mb-4">
-                    <KeyRound className="h-12 w-12 text-blue-600 mx-auto" />
-                    <h3 className="text-lg font-semibold">Reset your password</h3>
-                    <p className="text-sm text-gray-600">
-                      Enter your email address and we'll send you a link to reset your password.
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="forgot-email">Email</Label>
-                    <Input
-                      id="forgot-email"
-                      name="email"
-                      type="email"
-                      placeholder="example@gmail.com"
-                      required
-                    />
-                  </div>
-                  <Button 
-                    type="submit" 
-                    className="w-full" 
-                    disabled={isLoading}
-                  >
-                    {isLoading ? "Sending reset email..." : "Send Reset Email"}
-                  </Button>
-                  <div className="text-center">
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab("login")}
-                      className="text-sm text-blue-600 hover:text-blue-700 underline"
-                    >
-                      Back to Login
-                    </button>
-                  </div>
-                </form>
-              </TabsContent>
 
               <TabsContent value="reset-password">
                 <form onSubmit={handleUpdatePassword} className="space-y-4">
