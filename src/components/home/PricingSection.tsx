@@ -3,13 +3,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Check, CheckCircle, Sun, Moon, Clock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRazorpay } from "@/hooks/useRazorpay";
+import { usePayU } from "@/hooks/usePayU";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 
 const PricingSection = () => {
   const { user } = useAuth();
-  const { initiatePayment, isLoading } = useRazorpay();
+  const { initiatePayment, isLoading } = usePayU();
   const navigate = useNavigate();
   const { toast } = useToast();
   const handlePlanSelect = (plan) => {

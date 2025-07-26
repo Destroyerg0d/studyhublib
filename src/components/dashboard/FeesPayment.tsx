@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { useRazorpay } from "@/hooks/useRazorpay";
+import { usePayU } from "@/hooks/usePayU";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -26,7 +26,7 @@ const FeesPayment = () => {
   const [payments, setPayments] = useState([]);
   const [currentSubscription, setCurrentSubscription] = useState(null);
   const { toast } = useToast();
-  const { initiatePayment, isLoading } = useRazorpay();
+  const { initiatePayment, isLoading } = usePayU();
   const { user } = useAuth();
 
   useEffect(() => {
@@ -559,12 +559,12 @@ const FeesPayment = () => {
                     disabled={isLoading}
                   >
                     <CreditCard className="h-5 w-5 mr-2" />
-                    {isLoading ? "Processing..." : "Pay with Razorpay"}
+                    {isLoading ? "Processing..." : "Pay with PayU"}
                   </Button>
                   
                   <div className="text-center">
                     <div className="text-sm text-gray-500">
-                      🔒 Secure payment powered by Razorpay
+                      🔒 Secure payment powered by PayU
                     </div>
                   </div>
                 </div>
@@ -588,7 +588,7 @@ const FeesPayment = () => {
                       <div>
                         <p className="font-medium">{payment.plans?.name || 'Plan'}</p>
                         <p className="text-sm text-gray-600">
-                          {new Date(payment.created_at).toLocaleDateString()} • Razorpay
+                          {new Date(payment.created_at).toLocaleDateString()} • PayU
                         </p>
                       </div>
                     </div>

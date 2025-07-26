@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { useCanteenRazorpay } from "@/hooks/useCanteenRazorpay";
+import { useCanteenPayU } from "@/hooks/useCanteenPayU";
 import { Coffee, ShoppingCart, Plus, Minus, Utensils, Clock, Truck, Star, CreditCard } from "lucide-react";
 
 interface MenuItem {
@@ -18,7 +18,7 @@ interface MenuItem {
 
 const Canteen = () => {
   const { toast } = useToast();
-  const { createOrder, isLoading } = useCanteenRazorpay();
+  const { createOrder, isLoading } = useCanteenPayU();
   const [cart, setCart] = useState<{ [key: string]: number }>({});
 
   const menuItems: MenuItem[] = [
