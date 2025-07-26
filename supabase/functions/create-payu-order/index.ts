@@ -116,14 +116,23 @@ serve(async (req) => {
         .single()
 
       // Create payment record in database
+      console.log('Creating payment record with:', {
+        user_id: user.id,
+        plan_id: plan_id,
+        amount: Math.round(finalAmount),
+        coupon_id: couponId,
+        discount_amount: Math.round(discountAmount),
+        payu_order_id: txnId
+      })
+      
       const { data: paymentData, error: paymentError } = await supabase
         .from('payments')
         .insert({
           user_id: user.id,
           plan_id: plan_id,
-          amount: finalAmount,
+          amount: Math.round(finalAmount),
           coupon_id: couponId,
-          discount_amount: discountAmount,
+          discount_amount: Math.round(discountAmount),
           status: 'pending',
           payment_method: 'payu',
           payu_order_id: txnId,

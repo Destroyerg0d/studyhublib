@@ -291,6 +291,8 @@ export type Database = {
           original_amount: number | null
           paid_at: string | null
           payment_method: string | null
+          payu_order_id: string | null
+          payu_payment_id: string | null
           plan_id: string | null
           razorpay_order_id: string
           razorpay_payment_id: string | null
@@ -310,6 +312,8 @@ export type Database = {
           original_amount?: number | null
           paid_at?: string | null
           payment_method?: string | null
+          payu_order_id?: string | null
+          payu_payment_id?: string | null
           plan_id?: string | null
           razorpay_order_id: string
           razorpay_payment_id?: string | null
@@ -329,6 +333,8 @@ export type Database = {
           original_amount?: number | null
           paid_at?: string | null
           payment_method?: string | null
+          payu_order_id?: string | null
+          payu_payment_id?: string | null
           plan_id?: string | null
           razorpay_order_id?: string
           razorpay_payment_id?: string | null
@@ -358,6 +364,7 @@ export type Database = {
         Row: {
           active: boolean
           created_at: string
+          duration_days: number | null
           duration_months: number
           features: string[] | null
           id: string
@@ -368,6 +375,7 @@ export type Database = {
         Insert: {
           active?: boolean
           created_at?: string
+          duration_days?: number | null
           duration_months: number
           features?: string[] | null
           id?: string
@@ -378,6 +386,7 @@ export type Database = {
         Update: {
           active?: boolean
           created_at?: string
+          duration_days?: number | null
           duration_months?: number
           features?: string[] | null
           id?: string
