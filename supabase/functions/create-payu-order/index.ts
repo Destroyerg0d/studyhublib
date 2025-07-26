@@ -121,8 +121,7 @@ serve(async (req) => {
         .insert({
           user_id: user.id,
           plan_id: plan_id,
-          amount: amount,
-          final_amount: finalAmount,
+          amount: finalAmount,
           coupon_id: couponId,
           discount_amount: discountAmount,
           status: 'pending',
@@ -131,7 +130,8 @@ serve(async (req) => {
           metadata: {
             user_id: user.id,
             plan_id: plan_id,
-            coupon_code: coupon_code
+            coupon_code: coupon_code,
+            original_amount: amount
           }
         })
         .select()
