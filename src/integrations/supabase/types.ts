@@ -294,7 +294,7 @@ export type Database = {
           payu_order_id: string | null
           payu_payment_id: string | null
           plan_id: string | null
-          razorpay_order_id: string
+          razorpay_order_id: string | null
           razorpay_payment_id: string | null
           razorpay_signature: string | null
           status: string
@@ -315,7 +315,7 @@ export type Database = {
           payu_order_id?: string | null
           payu_payment_id?: string | null
           plan_id?: string | null
-          razorpay_order_id: string
+          razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
           razorpay_signature?: string | null
           status?: string
@@ -336,7 +336,7 @@ export type Database = {
           payu_order_id?: string | null
           payu_payment_id?: string | null
           plan_id?: string | null
-          razorpay_order_id?: string
+          razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
           razorpay_signature?: string | null
           status?: string
