@@ -23,18 +23,9 @@ const PricingSection = () => {
       return;
     }
 
-    // Generate a plan ID for payment (you may want to use actual plan IDs from database)
-    const planId = `${plan.name.toLowerCase().replace(/\s+/g, '-')}-1month`;
-    const amount = parseInt(plan.price.replace('₹', '').replace(',', ''));
-
-    initiatePayment({
-      planId,
-      amount,
-      planName: plan.name,
-      onSuccess: () => {
-        navigate('/dashboard/fees');
-      },
-    });
+    // Note: PricingSection should redirect to proper plan selection page
+    // For now, redirect to the fees page for proper plan selection
+    navigate('/dashboard/fees');
   };
 
   // Enhanced plan data with icons and better organization
