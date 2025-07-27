@@ -154,6 +154,31 @@ serve(async (req) => {
         )
       }
 
+      // Generate hash for PayU
+      const hashString = [
+        payuClientId,
+        txnId,
+        finalAmount.toString(),
+        'StudyHub Plan Payment',
+        profile?.name || 'Customer',
+        profile?.email || user.email,
+        user.id,
+        plan_id,
+        paymentData.id,
+        '',
+        '',
+        payuClientSecret
+      ].join('|')
+
+      // Create SHA512 hash
+      const encoder = new TextEncoder()
+      const data = encoder.encode(hashString)
+      const hashBuffer = await crypto.subtle.digest('SHA-512', data)
+      const hashArray = Array.from(new Uint8Array(hashBuffer))
+      const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+
+      console.log('Generated hash for PayU payment:', hash.substring(0, 20) + '...')
+
       // Return PayU payment parameters
       return new Response(
         JSON.stringify({
@@ -163,7 +188,7 @@ serve(async (req) => {
             key: payuClientId,
             txnid: txnId,
             amount: finalAmount.toString(),
-            productinfo: `StudyHub Plan Payment`,
+            productinfo: 'StudyHub Plan Payment',
             firstname: profile?.name || 'Customer',
             email: profile?.email || user.email,
             phone: profile?.phone || '',
@@ -171,7 +196,8 @@ serve(async (req) => {
             udf2: plan_id,
             udf3: paymentData.id,
             surl: `${req.headers.get('origin')}/dashboard/fees?status=success`,
-            furl: `${req.headers.get('origin')}/dashboard/fees?status=failure`
+            furl: `${req.headers.get('origin')}/dashboard/fees?status=failure`,
+            hash: hash
           }
         }),
         { 

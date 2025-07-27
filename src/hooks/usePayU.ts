@@ -98,7 +98,7 @@ export const usePayU = () => {
       window.bolt.launch({
         key: payuParams.key,
         txnid: payuParams.txnid,
-        hash: '', // Hash will be generated on server side
+        hash: payuParams.hash, // Hash generated on server side
         amount: payuParams.amount,
         firstname: payuParams.firstname,
         email: payuParams.email,
