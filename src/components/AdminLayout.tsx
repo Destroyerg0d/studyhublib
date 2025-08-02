@@ -20,6 +20,7 @@ import {
   UtensilsCrossed,
   ShoppingCart,
   Ticket,
+  CreditCard as PaymentIcon,
 } from "lucide-react";
 
 const AdminLayout = ({ children }: { children: React.ReactNode }) => {
@@ -45,6 +46,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
     { path: "/admin/canteen-orders", icon: ShoppingCart, label: "Canteen Orders" },
     { path: "/admin/coupons", icon: Ticket, label: "Coupon Management" },
     { path: "/admin/verification", icon: CheckCircle, label: "Verification" },
+    { path: "/admin/payment-verification", icon: PaymentIcon, label: "Payment Verification" },
   ];
 
   const isActive = (path: string, exact = false) => {
