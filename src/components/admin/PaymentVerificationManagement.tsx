@@ -49,7 +49,7 @@ const PaymentVerificationManagement = () => {
   const fetchVerifications = async () => {
     try {
       const { data, error } = await supabase
-        .from('payment_verifications')
+        .from('payment_verifications' as any)
         .select(`
           *,
           user_profile:profiles!inner(name, email),
@@ -61,7 +61,7 @@ const PaymentVerificationManagement = () => {
         throw error;
       }
 
-      setVerifications(data || []);
+      setVerifications((data as any) || []);
     } catch (error: any) {
       console.error('Error fetching payment verifications:', error);
       toast({
@@ -113,7 +113,7 @@ const PaymentVerificationManagement = () => {
       }
 
       const { error } = await supabase
-        .from('payment_verifications')
+        .from('payment_verifications' as any)
         .update(updateData)
         .eq('id', verificationId);
 

@@ -96,7 +96,7 @@ const QRPayment = ({ plan, onSubmitted }: QRPaymentProps) => {
 
       // Submit verification request
       const { error } = await supabase
-        .from('payment_verifications')
+        .from('payment_verifications' as any)
         .insert({
           user_id: user?.id,
           plan_id: plan.id,
