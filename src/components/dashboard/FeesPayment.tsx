@@ -4,9 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { usePayU } from "@/hooks/usePayU";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import QRPayment from "./QRPayment";
 import {
   CreditCard,
   Calendar,
@@ -26,7 +26,6 @@ const FeesPayment = () => {
   const [payments, setPayments] = useState([]);
   const [currentSubscription, setCurrentSubscription] = useState(null);
   const { toast } = useToast();
-  const { initiatePayment, isLoading } = usePayU();
   const { user } = useAuth();
 
   useEffect(() => {
@@ -58,7 +57,7 @@ const FeesPayment = () => {
         setCurrentSubscription(subscriptionData);
       }
 
-      // Fetch payment history
+      // Fetch payment history including payment verifications
       const { data: paymentsData } = await supabase
         .from('payments')
         .select('*, plans(*)')
@@ -173,34 +172,6 @@ const FeesPayment = () => {
     setSelectedPlan(planId);
   };
 
-  const handlePayment = async () => {
-    if (!selectedPlan) {
-      toast({
-        title: "Please select a plan",
-        description: "Choose a payment plan to continue.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const plan = plans.find(p => p.id === selectedPlan);
-    if (!plan) return;
-
-    await initiatePayment({
-      planId: plan.id,
-      amount: plan.price,
-      planName: plan.name,
-      onSuccess: () => {
-        setSelectedPlan("");
-        // Refresh data
-        window.location.reload();
-      },
-      onError: (error) => {
-        console.error('Payment error:', error);
-      },
-    });
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case "paid": return "bg-green-100 text-green-800";
@@ -288,108 +259,9 @@ const FeesPayment = () => {
               <p className="text-gray-600">Select the time slot that works best for you</p>
             </div>
             
-            {/* Full Day Plan - Featured prominently */}
-            <div className="lg:col-span-3 mb-6">
-              {(() => {
-                const fullDayType = planTypes.find(p => p.type === 'day');
-                const Icon = fullDayType.icon;
-                const isSelected = selectedPlanType === 'day';
-                const plansForType = plansByType['day'] || [];
-                const basePrice = plansForType.find(p => p.duration_months === 1)?.price || 0;
-                const savings = plansForType.find(p => p.duration_months === 12) ? 
-                  (12 * basePrice) - plansForType.find(p => p.duration_months === 12).price : 0;
-                
-                return (
-                  <Card 
-                    className={`relative cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-2 border-2 ${
-                      isSelected 
-                        ? 'ring-4 ring-blue-500 border-blue-400 shadow-2xl' 
-                        : 'border-yellow-300 hover:border-yellow-400 shadow-lg'
-                    } bg-gradient-to-br from-yellow-50 via-orange-50 to-amber-50`}
-                    onClick={() => handlePlanTypeSelect('day')}
-                  >
-                    {/* Most Popular Badge */}
-                    <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-2 rounded-full text-sm font-bold shadow-lg">
-                      ⭐ MOST POPULAR
-                    </div>
-                    
-                    {isSelected && (
-                      <div className="absolute -top-2 -right-2 bg-blue-500 text-white rounded-full p-2">
-                        <CheckCircle className="h-6 w-6" />
-                      </div>
-                    )}
-                    
-                    <CardHeader className="pb-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center space-x-4">
-                          <div className="p-3 rounded-xl bg-gradient-to-br from-yellow-400 to-orange-500 shadow-lg">
-                            <Icon className="h-8 w-8 text-white" />
-                          </div>
-                          <div>
-                            <CardTitle className="text-3xl font-bold text-yellow-700">Full Day Access</CardTitle>
-                            <CardDescription className="text-lg font-medium text-gray-700">6:00 AM - 10:00 PM (16 Hours)</CardDescription>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-sm text-gray-500 mb-1">Starting from</div>
-                          <div className="text-3xl font-bold text-gray-900">₹{basePrice}<span className="text-lg text-gray-600">/month</span></div>
-                          {savings > 0 && (
-                            <div className="text-sm text-green-600 font-bold">Save up to ₹{savings} yearly!</div>
-                          )}
-                        </div>
-                      </div>
-                    </CardHeader>
-                    
-                    <CardContent>
-                      <div className="grid md:grid-cols-3 gap-6">
-                        <div className="space-y-3">
-                          <h4 className="font-semibold text-gray-900 mb-2">✨ Premium Features</h4>
-                          <div className="space-y-2 text-sm text-gray-700">
-                            <div className="flex items-center"><CheckCircle className="h-4 w-4 text-green-500 mr-2" />Maximum study hours (16/day)</div>
-                            <div className="flex items-center"><CheckCircle className="h-4 w-4 text-green-500 mr-2" />Private study booth</div>
-                            <div className="flex items-center"><CheckCircle className="h-4 w-4 text-green-500 mr-2" />High-speed WiFi & power outlets</div>
-                            <div className="flex items-center"><CheckCircle className="h-4 w-4 text-green-500 mr-2" />Climate controlled environment</div>
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-3">
-                          <h4 className="font-semibold text-gray-900 mb-2">🎯 Perfect For</h4>
-                          <div className="space-y-2 text-sm text-gray-700">
-                            <div>• Competitive exam preparation</div>
-                            <div>• Full-time students</div>
-                            <div>• Dedicated learners</div>
-                            <div>• Maximum productivity seekers</div>
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-3">
-                          <h4 className="font-semibold text-gray-900 mb-2">💰 Value Benefits</h4>
-                          <div className="space-y-2 text-sm text-gray-700">
-                            <div className="flex items-center"><CheckCircle className="h-4 w-4 text-green-500 mr-2" />Best value per hour</div>
-                            <div className="flex items-center"><CheckCircle className="h-4 w-4 text-green-500 mr-2" />Flexible study schedule</div>
-                            <div className="flex items-center"><CheckCircle className="h-4 w-4 text-green-500 mr-2" />Higher success rate</div>
-                            <div className="flex items-center"><CheckCircle className="h-4 w-4 text-green-500 mr-2" />{plansForType.length} duration options</div>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {isSelected && (
-                        <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200">
-                          <div className="flex items-center justify-center text-blue-700">
-                            <CheckCircle className="h-5 w-5 mr-2" />
-                            <span className="text-lg font-bold">Excellent Choice! Select your duration below ⬇️</span>
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })()}
-            </div>
-
-            {/* Other Plans - Arranged in grid */}
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {planTypes.filter(p => p.type !== 'day').map((planType) => {
+            {/* Plans Grid */}
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {planTypes.map((planType) => {
                 const Icon = planType.icon;
                 const isSelected = selectedPlanType === planType.type;
                 const plansForType = plansByType[planType.type] || [];
@@ -413,39 +285,35 @@ const FeesPayment = () => {
                     
                     <CardHeader className={`${planType.bgColor} rounded-t-lg`}>
                       <div className="flex items-center justify-between">
-                        <div className={`p-2 rounded-lg bg-gradient-to-br ${planType.color}`}>
-                          <Icon className="h-5 w-5 text-white" />
+                        <div className="p-2 rounded-lg bg-white shadow-sm">
+                          <Icon className={`h-6 w-6 ${planType.textColor}`} />
                         </div>
                         <div className="text-right">
-                          <div className="text-xs text-gray-500">from</div>
+                          <div className="text-sm text-gray-500">from</div>
                           <div className="text-lg font-bold text-gray-900">₹{basePrice}</div>
                         </div>
                       </div>
-                      <CardTitle className={`text-lg ${planType.textColor}`}>{planType.name}</CardTitle>
-                      <CardDescription className="text-sm font-medium text-gray-700">{planType.timing}</CardDescription>
+                      <div>
+                        <CardTitle className={`text-xl ${planType.textColor}`}>{planType.name}</CardTitle>
+                        <CardDescription className="text-gray-600 font-medium">{planType.timing}</CardDescription>
+                        <CardDescription className="text-sm text-gray-500 mt-1">{planType.description}</CardDescription>
+                      </div>
                     </CardHeader>
                     
-                    <CardContent className="pt-3">
+                    <CardContent className="pt-4">
                       <div className="space-y-2">
-                        <p className="text-xs text-gray-600">{planType.description}</p>
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-gray-500">Duration:</span>
-                          <span className="font-medium text-gray-700">{planType.hours}</span>
+                        <div className="flex items-center justify-between text-sm">
+                          <span>Daily Hours:</span>
+                          <span className="font-semibold">{planType.hours}</span>
                         </div>
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-gray-500">Options:</span>
-                          <span className="font-medium text-gray-700">{plansForType.length} plans</span>
+                        <div className="flex items-center justify-between text-sm">
+                          <span>Plans Available:</span>
+                          <span className="font-semibold">{plansForType.length} options</span>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-2">
+                          Perfect for {planType.description.toLowerCase()}
                         </div>
                       </div>
-                      
-                      {isSelected && (
-                        <div className="mt-3 p-2 bg-blue-50 rounded-lg border border-blue-200">
-                          <div className="flex items-center text-blue-700">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            <span className="text-xs font-medium">Selected!</span>
-                          </div>
-                        </div>
-                      )}
                     </CardContent>
                   </Card>
                 );
@@ -455,119 +323,98 @@ const FeesPayment = () => {
 
           {/* Step 2: Duration Selection */}
           {selectedPlanType && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="space-y-6">
               <div className="text-center">
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">Select Your Duration</h3>
-                <p className="text-gray-600">Longer plans offer better savings</p>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">Choose Your Duration</h3>
+                <p className="text-gray-600">Select how long you want to study with us</p>
               </div>
-              
-              <div className="max-w-2xl mx-auto">
-                <div className="grid gap-4">
-                  {getAvailableDurations(selectedPlanType).map((duration, index) => {
-                    const isSelected = selectedDuration === duration.value;
-                    const isPopular = duration.duration === 3;
-                    
-                    return (
-                      <Card
-                        key={duration.value}
-                        className={`relative cursor-pointer transition-all duration-300 hover:shadow-md ${
-                          isSelected 
-                            ? 'ring-2 ring-blue-500 shadow-md border-blue-200' 
-                            : 'hover:border-gray-300'
-                        } ${isPopular ? 'border-green-300 bg-green-50' : ''}`}
-                        onClick={() => handleDurationSelect(duration.value)}
-                      >
-                        {isPopular && (
-                          <div className="absolute -top-2 left-4 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-medium">
-                            Most Popular
+
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {getAvailableDurations(selectedPlanType).map((duration) => {
+                  const isSelected = selectedDuration === duration.value;
+                  const discountPercentage = duration.savings > 0 ? Math.round((duration.savings / duration.originalPrice) * 100) : 0;
+                  
+                  return (
+                    <Card 
+                      key={duration.value}
+                      className={`cursor-pointer transition-all duration-300 hover:shadow-lg ${
+                        isSelected 
+                          ? 'ring-2 ring-blue-500 border-blue-400 shadow-lg bg-blue-50' 
+                          : 'hover:border-blue-300'
+                      }`}
+                      onClick={() => handleDurationSelect(duration.value)}
+                    >
+                      {duration.savings > 0 && (
+                        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold">
+                          Save {discountPercentage}%
+                        </div>
+                      )}
+                      
+                      {isSelected && (
+                        <div className="absolute -top-2 -right-2 bg-blue-500 text-white rounded-full p-1">
+                          <CheckCircle className="h-4 w-4" />
+                        </div>
+                      )}
+
+                      <CardHeader className="text-center pb-2">
+                        <CardTitle className="text-2xl font-bold">{duration.label}</CardTitle>
+                        {duration.savings > 0 && (
+                          <div className="text-sm text-gray-500 line-through">₹{duration.originalPrice}</div>
+                        )}
+                        <div className="text-3xl font-bold text-blue-600">₹{duration.price}</div>
+                        <div className="text-sm text-gray-600">₹{Math.round(duration.price / duration.duration)}/month</div>
+                      </CardHeader>
+                      
+                      <CardContent className="text-center pt-0">
+                        {duration.savings > 0 && (
+                          <div className="text-green-600 font-semibold text-sm mb-2">
+                            You save ₹{duration.savings}
                           </div>
                         )}
-                        
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <div className={`w-4 h-4 rounded-full border-2 ${
-                                isSelected 
-                                  ? 'bg-blue-500 border-blue-500' 
-                                  : 'border-gray-300'
-                              }`}>
-                                {isSelected && (
-                                  <div className="w-2 h-2 bg-white rounded-full mx-auto mt-0.5"></div>
-                                )}
-                              </div>
-                              <div>
-                                <div className="font-semibold text-gray-900">{duration.label}</div>
-                                {duration.savings > 0 && (
-                                  <div className="text-sm text-green-600 font-medium">
-                                    Save ₹{duration.savings}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            
-                            <div className="text-right">
-                              <div className="text-2xl font-bold text-gray-900">₹{duration.price}</div>
-                              {duration.savings > 0 && (
-                                <div className="text-sm text-gray-500 line-through">₹{duration.originalPrice}</div>
-                              )}
-                              <div className="text-sm text-gray-600">
-                                ₹{Math.round(duration.price / duration.duration)}/month
-                              </div>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
+                        <div className="text-xs text-gray-500">
+                          {duration.duration === 1 ? 'Perfect for trial' : 
+                           duration.duration <= 3 ? 'Great for short-term goals' :
+                           duration.duration <= 6 ? 'Ideal for exam preparation' :
+                           'Best value for serious learners'}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {/* Step 3: Payment Section */}
+          {/* Step 3: Payment */}
           {selectedPlan && (
-            <Card className="animate-fade-in">
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <CreditCard className="h-5 w-5 mr-2" />
-                  Complete Your Purchase
+                  <CreditCard className="mr-2 h-6 w-6" />
+                  Payment
                 </CardTitle>
                 <CardDescription>
-                  {planTypes.find(p => p.type === selectedPlanType)?.name} - {
-                    getAvailableDurations(selectedPlanType).find(d => d.value === selectedDuration)?.label
-                  }
+                  Complete your payment to activate your {plans.find(p => p.id === selectedPlan)?.name} plan
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
-                    <div className="flex justify-between items-center">
-                      <span className="font-semibold text-gray-900">Total Amount</span>
-                      <span className="text-2xl font-bold text-blue-700">
-                        ₹{plans.find(p => p.id === selectedPlan)?.price}
-                      </span>
-                    </div>
-                    <div className="text-sm text-gray-600 mt-1">
-                      One-time payment • Secure checkout
-                    </div>
-                  </div>
-
-                  <Button 
-                    className="w-full py-6 text-lg font-semibold" 
-                    size="lg"
-                    onClick={handlePayment}
-                    disabled={isLoading}
-                  >
-                    <CreditCard className="h-5 w-5 mr-2" />
-                    {isLoading ? "Processing..." : "Pay with PayU"}
-                  </Button>
-                  
-                  <div className="text-center">
-                    <div className="text-sm text-gray-500">
-                      🔒 Secure payment powered by PayU
-                    </div>
-                  </div>
+                <div className="text-center mb-6">
+                  <h3 className="text-lg font-semibold text-primary mb-2">QR Code Payment</h3>
+                  <p className="text-muted-foreground">Pay via UPI by scanning the QR code below</p>
                 </div>
+
+                <QRPayment 
+                  plan={plans.find(p => p.id === selectedPlan)}
+                  onSubmitted={() => {
+                    toast({
+                      title: "Payment verification submitted",
+                      description: "Your payment proof has been submitted for admin verification.",
+                    });
+                    setTimeout(() => {
+                      window.location.reload();
+                    }, 2000);
+                  }}
+                />
               </CardContent>
             </Card>
           )}
@@ -576,7 +423,10 @@ const FeesPayment = () => {
         <TabsContent value="history">
           <Card>
             <CardHeader>
-              <CardTitle>Payment History</CardTitle>
+              <CardTitle className="flex items-center">
+                <Calendar className="mr-2 h-6 w-6" />
+                Payment History
+              </CardTitle>
               <CardDescription>Your recent transactions and payments</CardDescription>
             </CardHeader>
             <CardContent>
@@ -588,7 +438,7 @@ const FeesPayment = () => {
                       <div>
                         <p className="font-medium">{payment.plans?.name || 'Plan'}</p>
                         <p className="text-sm text-gray-600">
-                          {new Date(payment.created_at).toLocaleDateString()} • PayU
+                          {new Date(payment.created_at).toLocaleDateString()} • QR Payment
                         </p>
                       </div>
                     </div>

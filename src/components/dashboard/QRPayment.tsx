@@ -28,9 +28,10 @@ const QRPayment = ({ plan, onSubmitted }: QRPaymentProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // QR Code details - replace with actual payment details
+  // QR Code details - actual payment details
   const qrDetails = {
-    upiId: "studyhub@upi",
+    upiId: "8595300308@okbizaxis",
+    merchant: "The Study Hub Library",
     amount: plan.price,
     description: `StudyHub ${plan.name} Plan`
   };
@@ -155,17 +156,21 @@ const QRPayment = ({ plan, onSubmitted }: QRPaymentProps) => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* QR Code Placeholder - In real implementation, generate actual QR code */}
-          <div className="bg-gray-100 h-64 w-64 mx-auto flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg">
-            <div className="text-center">
-              <QrCode className="w-16 h-16 text-gray-400 mx-auto mb-2" />
-              <p className="text-sm text-gray-500">QR Code</p>
-              <p className="text-xs text-gray-400">Scan to pay ₹{plan.price}</p>
-            </div>
+          {/* Actual QR Code Image */}
+          <div className="flex justify-center">
+            <img 
+              src="/lovable-uploads/c3f2e18b-0fa9-4de4-8806-37667f7fcafb.png" 
+              alt="Payment QR Code - The Study Hub Library" 
+              className="max-w-sm w-full h-auto rounded-lg shadow-lg"
+            />
           </div>
           
           {/* Payment Details */}
           <div className="bg-muted p-4 rounded-lg space-y-2">
+            <div className="flex justify-between">
+              <span className="font-medium">Merchant:</span>
+              <span className="font-semibold">{qrDetails.merchant}</span>
+            </div>
             <div className="flex justify-between">
               <span className="font-medium">UPI ID:</span>
               <span className="font-mono">{qrDetails.upiId}</span>
