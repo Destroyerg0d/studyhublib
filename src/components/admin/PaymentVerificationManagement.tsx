@@ -48,20 +48,44 @@ const PaymentVerificationManagement = () => {
 
   const fetchVerifications = async () => {
     try {
-      const { data, error } = await supabase
+      // First, fetch payment verifications
+      const { data: verificationData, error: verificationError } = await supabase
         .from('payment_verifications' as any)
-        .select(`
-          *,
-          user_profile:profiles!inner(name, email),
-          plan:plans!inner(name, type)
-        `)
+        .select('*')
         .order('submitted_at', { ascending: false });
 
-      if (error) {
-        throw error;
+      if (verificationError) {
+        throw verificationError;
       }
 
-      setVerifications((data as any) || []);
+      if (verificationData && verificationData.length > 0) {
+        // Get unique user IDs and plan IDs
+        const userIds = [...new Set((verificationData as any[]).map((v: any) => v.user_id))];
+        const planIds = [...new Set((verificationData as any[]).map((v: any) => v.plan_id))];
+
+        // Fetch user profiles
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, name, email')
+          .in('id', userIds);
+
+        // Fetch plans
+        const { data: plansData } = await supabase
+          .from('plans')
+          .select('id, name, type, price')
+          .in('id', planIds);
+
+        // Combine the data
+        const enrichedVerifications = (verificationData as any[]).map((verification: any) => ({
+          ...verification,
+          user_profile: profilesData?.find((p: any) => p.id === verification.user_id) || null,
+          plan: plansData?.find((p: any) => p.id === verification.plan_id) || null
+        }));
+
+        setVerifications(enrichedVerifications as any);
+      } else {
+        setVerifications([]);
+      }
     } catch (error: any) {
       console.error('Error fetching payment verifications:', error);
       toast({
