@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertCircle, CheckCircle, XCircle, Eye, Clock, Search } from "lucide-react";
+import { AlertCircle, CheckCircle, XCircle, Eye, Clock, Search, Download, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -121,6 +121,33 @@ const PaymentVerificationManagement = () => {
       supabase.removeChannel(channel);
     };
   }, []);
+
+  const downloadPaymentProof = async (url: string, fileName: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+      
+      toast({
+        title: "Download started",
+        description: "Payment proof is being downloaded.",
+      });
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      toast({
+        title: "Download failed",
+        description: "Failed to download payment proof.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleVerificationAction = async (action: 'approve' | 'reject', verificationId: string, reason?: string) => {
     setActionLoading(true);
@@ -347,6 +374,7 @@ const PaymentVerificationManagement = () => {
                     </TableCell>
                     <TableCell>
                       <div className="font-semibold">₹{verification.amount}</div>
+                      <div className="text-xs text-muted-foreground">{verification.payment_method}</div>
                     </TableCell>
                     <TableCell>
                       <div className="font-mono text-sm">{verification.transaction_reference || 'N/A'}</div>
@@ -363,17 +391,31 @@ const PaymentVerificationManagement = () => {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedVerification(verification);
-                          setIsDialogOpen(true);
-                        }}
-                      >
-                        <Eye className="w-4 h-4 mr-1" />
-                        Review
-                      </Button>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedVerification(verification);
+                            setIsDialogOpen(true);
+                          }}
+                        >
+                          <Eye className="w-4 h-4 mr-1" />
+                          Review
+                        </Button>
+                        {verification.payment_proof_url && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => downloadPaymentProof(
+                              verification.payment_proof_url!,
+                              `payment-proof-${verification.transaction_reference || verification.id}.jpg`
+                            )}
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -432,13 +474,41 @@ const PaymentVerificationManagement = () => {
               {/* Payment Proof */}
               {selectedVerification.payment_proof_url && (
                 <div>
-                  <h4 className="font-semibold mb-2">Payment Proof</h4>
-                  <div className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-semibold">Payment Proof</h4>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(selectedVerification.payment_proof_url!, '_blank')}
+                      >
+                        <ExternalLink className="w-4 h-4 mr-1" />
+                        View Full Size
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => downloadPaymentProof(
+                          selectedVerification.payment_proof_url!,
+                          `payment-proof-${selectedVerification.transaction_reference || selectedVerification.id}.jpg`
+                        )}
+                      >
+                        <Download className="w-4 h-4 mr-1" />
+                        Download
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="border rounded-lg p-4 bg-gray-50">
                     <img 
                       src={selectedVerification.payment_proof_url} 
-                      alt="Payment proof"
-                      className="max-w-full h-auto rounded"
+                      alt="Payment proof screenshot"
+                      className="max-w-full h-auto rounded cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => window.open(selectedVerification.payment_proof_url!, '_blank')}
+                      style={{ maxHeight: '400px' }}
                     />
+                    <p className="text-sm text-muted-foreground mt-2 text-center">
+                      Click image to view full size or use buttons above to view/download
+                    </p>
                   </div>
                 </div>
               )}
