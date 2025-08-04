@@ -187,20 +187,36 @@ const SeatManagement = () => {
   useEffect(() => {
     fetchData();
 
-    // Set up real-time subscriptions
+    // Set up real-time subscriptions with immediate updates
     const channel = supabase
       .channel('admin-seat-management')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'seats' }, 
-        () => fetchData()
+        (payload) => {
+          console.log('Seats table change:', payload);
+          fetchData();
+        }
       )
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'subscriptions' }, 
-        () => fetchData()
+        (payload) => {
+          console.log('Subscriptions table change:', payload);
+          fetchData();
+        }
       )
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'seat_bookings' }, 
-        () => fetchData()
+        (payload) => {
+          console.log('Seat bookings table change:', payload);
+          fetchData();
+        }
+      )
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'profiles' }, 
+        (payload) => {
+          console.log('Profiles table change:', payload);
+          fetchData();
+        }
       )
       .subscribe();
 

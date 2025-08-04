@@ -72,6 +72,8 @@ type TimeSlotType = 'full_day' | 'morning' | 'evening' | 'night';
 
 const SeatArrangement = () => {
   const [selectedSeat, setSelectedSeat] = useState<number | null>(null);
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<TimeSlotType | "">("");
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [seats, setSeats] = useState<Seat[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -266,15 +268,27 @@ const SeatArrangement = () => {
       return;
     }
 
-    // Auto-book the first available compatible slot
-    const timeSlot = availableSlots[0];
-    
+    // Set selected seat to show confirmation dialog
+    setSelectedSeat(seatNumber);
+    setConfirmDialogOpen(true);
+  };
+
+  const handleConfirmBooking = async () => {
+    if (!selectedSeat || !selectedTimeSlot || !userSubscription) {
+      toast({
+        title: "Missing Information",
+        description: "Please select a time slot to confirm booking.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       // Check if seat is still available for the time slot
       const { data: isAvailable } = await supabase
         .rpc('is_seat_available', {
-          _seat_number: seatNumber,
-          _time_slot: timeSlot,
+          _seat_number: selectedSeat,
+          _time_slot: selectedTimeSlot,
           _start_date: userSubscription.start_date,
           _end_date: userSubscription.end_date
         });
@@ -282,20 +296,23 @@ const SeatArrangement = () => {
       if (!isAvailable) {
         toast({
           title: "Seat Not Available",
-          description: "This seat is no longer available for your plan's time slot.",
+          description: "This seat is no longer available for the selected time slot.",
           variant: "destructive",
         });
+        setConfirmDialogOpen(false);
+        setSelectedSeat(null);
+        setSelectedTimeSlot("");
         return;
       }
 
-      // Create seat booking
+      // Create seat booking for the entire subscription duration
       const { error } = await supabase
         .from('seat_bookings')
         .insert({
-          seat_number: seatNumber,
+          seat_number: selectedSeat,
           user_id: user?.id,
           subscription_id: userSubscription.id,
-          time_slot: timeSlot,
+          time_slot: selectedTimeSlot,
           start_date: userSubscription.start_date,
           end_date: userSubscription.end_date,
           status: 'active'
@@ -305,9 +322,12 @@ const SeatArrangement = () => {
 
       toast({
         title: "Seat booked successfully!",
-        description: `You have booked seat ${seatNumber} for ${getTimeSlotLabel(timeSlot)} (${userSubscription.plans.type} plan).`,
+        description: `You have booked seat ${selectedSeat} for ${getTimeSlotLabel(selectedTimeSlot)} for the entire duration of your ${userSubscription.plans.name} plan.`,
       });
 
+      setConfirmDialogOpen(false);
+      setSelectedSeat(null);
+      setSelectedTimeSlot("");
       fetchData();
     } catch (error) {
       console.error('Error booking seat:', error);
@@ -771,6 +791,83 @@ const SeatArrangement = () => {
 
         </CardContent>
       </Card>
+
+      {/* Seat Booking Confirmation Dialog */}
+      <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm Seat Booking</DialogTitle>
+            <DialogDescription>
+              You are about to book seat {selectedSeat}. Please select a time slot and confirm.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {selectedSeat && (
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-center">
+                  <AlertCircle className="h-5 w-5 text-yellow-600 mr-2" />
+                  <div>
+                    <h4 className="font-semibold text-yellow-900">Important Notice</h4>
+                    <p className="text-sm text-yellow-700 mt-1">
+                      This seat will be booked for the <strong>entire duration</strong> of your {userSubscription?.plans.name} plan 
+                      ({new Date(userSubscription?.start_date || '').toLocaleDateString()} - {new Date(userSubscription?.end_date || '').toLocaleDateString()}).
+                    </p>
+                    <p className="text-sm text-yellow-700 mt-1 font-medium">
+                      ⚠️ This booking cannot be changed once confirmed.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-2 block">
+                Select Time Slot for Seat {selectedSeat}
+              </label>
+              <Select value={selectedTimeSlot} onValueChange={(value) => setSelectedTimeSlot(value as TimeSlotType | "")}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose your time slot" />
+                </SelectTrigger>
+                <SelectContent>
+                  {selectedSeat && getAvailableTimeSlots(selectedSeat).map((slot) => (
+                    <SelectItem key={slot} value={slot}>
+                      <div className="flex items-center">
+                        <div className={`w-3 h-3 rounded-full mr-2 ${getTimeSlotColor(slot).split(' ')[0]}`}></div>
+                        {getTimeSlotLabel(slot)}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedSeat && getAvailableTimeSlots(selectedSeat).length === 0 && (
+                <p className="text-sm text-red-600 mt-2">No available time slots for this seat.</p>
+              )}
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setConfirmDialogOpen(false);
+                  setSelectedSeat(null);
+                  setSelectedTimeSlot("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleConfirmBooking}
+                disabled={!selectedTimeSlot}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Confirm Booking
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
