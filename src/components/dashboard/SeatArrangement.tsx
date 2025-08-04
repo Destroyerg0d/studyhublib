@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Users, CheckCircle, User, Building, Building2, Lock, AlertCircle, Clock, Calendar } from "lucide-react";
+import { Users, CheckCircle, User, Building, Building2, Lock, AlertCircle, Clock, Calendar, Filter, Settings, X } from "lucide-react";
 
 interface Seat {
   id: string;
@@ -72,7 +72,6 @@ type TimeSlotType = 'full_day' | 'morning' | 'evening' | 'night';
 
 const SeatArrangement = () => {
   const [selectedSeat, setSelectedSeat] = useState<number | null>(null);
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState<TimeSlotType | "">("");
   const [seats, setSeats] = useState<Seat[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -81,7 +80,7 @@ const SeatArrangement = () => {
   const [userBookings, setUserBookings] = useState<SeatBooking[]>([]);
   const [userSubscription, setUserSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
-  const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
+  const [showAllSlots, setShowAllSlots] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -202,10 +201,28 @@ const SeatArrangement = () => {
     return true;
   };
 
-  const getAvailableTimeSlots = (seatNumber: number) => {
-    const allSlots: TimeSlotType[] = ['morning', 'evening', 'night', 'full_day'];
+  const getPlanCompatibleSlots = () => {
+    if (!userSubscription) return [];
     
-    return allSlots.filter(slot => {
+    // Map plan types to compatible time slots
+    const planTypeMapping: Record<string, TimeSlotType[]> = {
+      'full_day': ['full_day'],
+      'morning': ['morning'],
+      'evening': ['evening'], 
+      'night': ['night'],
+      'day': ['morning', 'evening'], // day plan can use morning or evening
+      'flexible': ['morning', 'evening', 'night', 'full_day'] // flexible plan can use any
+    };
+    
+    return planTypeMapping[userSubscription.plans.type] || [];
+  };
+
+  const getAvailableTimeSlots = (seatNumber: number) => {
+    const compatibleSlots = showAllSlots ? 
+      ['morning', 'evening', 'night', 'full_day'] as TimeSlotType[] : 
+      getPlanCompatibleSlots();
+    
+    return compatibleSlots.filter(slot => {
       // Check if slot is booked
       const isBooked = seatBookings.some(b => 
         b.seat_number === seatNumber && 
@@ -223,7 +240,7 @@ const SeatArrangement = () => {
     });
   };
 
-  const handleSeatClick = (seatNumber: number) => {
+  const handleSeatClick = async (seatNumber: number) => {
     if (!userSubscription) {
       toast({
         title: "No Active Plan",
@@ -236,34 +253,28 @@ const SeatArrangement = () => {
     const availableSlots = getAvailableTimeSlots(seatNumber);
     
     if (availableSlots.length === 0) {
+      const planSlots = getPlanCompatibleSlots();
+      const isFiltered = !showAllSlots && planSlots.length > 0;
+      
       toast({
         title: "Seat Not Available",
-        description: "This seat has no available time slots or you already have bookings for all slots.",
+        description: isFiltered 
+          ? `This seat has no available ${userSubscription.plans.type} plan slots. ${planSlots.length === 0 ? 'Try enabling "Show All Slots" to see other options.' : ''}`
+          : "This seat has no available time slots or you already have bookings for all slots.",
         variant: "destructive",
       });
       return;
     }
 
-    setSelectedSeat(seatNumber);
-    setBookingDialogOpen(true);
-  };
-
-  const handleBookSeat = async () => {
-    if (!selectedSeat || !selectedTimeSlot || !user || !userSubscription) {
-      toast({
-        title: "Missing Information",
-        description: "Please select a seat and time slot.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+    // Auto-book the first available compatible slot
+    const timeSlot = availableSlots[0];
+    
     try {
       // Check if seat is still available for the time slot
       const { data: isAvailable } = await supabase
         .rpc('is_seat_available', {
-          _seat_number: selectedSeat,
-          _time_slot: selectedTimeSlot as TimeSlotType,
+          _seat_number: seatNumber,
+          _time_slot: timeSlot,
           _start_date: userSubscription.start_date,
           _end_date: userSubscription.end_date
         });
@@ -271,7 +282,7 @@ const SeatArrangement = () => {
       if (!isAvailable) {
         toast({
           title: "Seat Not Available",
-          description: "This seat is no longer available for the selected time slot.",
+          description: "This seat is no longer available for your plan's time slot.",
           variant: "destructive",
         });
         return;
@@ -281,10 +292,10 @@ const SeatArrangement = () => {
       const { error } = await supabase
         .from('seat_bookings')
         .insert({
-          seat_number: selectedSeat,
-          user_id: user.id,
+          seat_number: seatNumber,
+          user_id: user?.id,
           subscription_id: userSubscription.id,
-          time_slot: selectedTimeSlot as TimeSlotType,
+          time_slot: timeSlot,
           start_date: userSubscription.start_date,
           end_date: userSubscription.end_date,
           status: 'active'
@@ -294,12 +305,9 @@ const SeatArrangement = () => {
 
       toast({
         title: "Seat booked successfully!",
-        description: `You have booked seat ${selectedSeat} for ${getTimeSlotLabel(selectedTimeSlot)}.`,
+        description: `You have booked seat ${seatNumber} for ${getTimeSlotLabel(timeSlot)} (${userSubscription.plans.type} plan).`,
       });
 
-      setSelectedSeat(null);
-      setSelectedTimeSlot("");
-      setBookingDialogOpen(false);
       fetchData();
     } catch (error) {
       console.error('Error booking seat:', error);
@@ -310,6 +318,7 @@ const SeatArrangement = () => {
       });
     }
   };
+
 
   const getSeatBookings = (seatNumber: number) => {
     return seatBookings.filter(b => 
@@ -459,23 +468,55 @@ const SeatArrangement = () => {
                 </div>
               </div>
               <div className="p-3 bg-white rounded-lg border">
-                <p className="text-sm font-medium text-gray-700">Available Slots</p>
-                <p className="text-xs text-gray-600 mt-1">
-                  You can book up to 4 different time slots per subscription
-                </p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-gray-700">Plan Slots Filter</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowAllSlots(!showAllSlots)}
+                    className="text-xs h-6"
+                  >
+                    <Filter className="h-3 w-3 mr-1" />
+                    {showAllSlots ? 'Show Plan Slots' : 'Show All Slots'}
+                  </Button>
+                </div>
+                {!showAllSlots && (
+                  <div className="mb-2 p-2 bg-blue-50 rounded text-xs text-blue-700 border border-blue-200">
+                    <Filter className="h-3 w-3 inline mr-1" />
+                    Filtered to {userSubscription.plans.type} plan slots only
+                  </div>
+                )}
                 <div className="flex flex-wrap gap-1 mt-2">
                   {['morning', 'evening', 'night', 'full_day'].map((slot) => {
                     const hasSlot = userBookings.some(b => b.time_slot === slot);
+                    const isCompatible = getPlanCompatibleSlots().includes(slot as TimeSlotType);
+                    const isVisible = showAllSlots || isCompatible;
+                    
                     return (
                       <Badge 
                         key={slot}
                         variant={hasSlot ? "default" : "outline"}
-                        className={hasSlot ? getTimeSlotColor(slot) : "text-gray-400"}
+                        className={`${hasSlot ? getTimeSlotColor(slot) : isVisible ? "text-gray-400" : "text-gray-300 opacity-50"}`}
                       >
                         {getTimeSlotLabel(slot)}
+                        {!isCompatible && !showAllSlots && <Lock className="h-2 w-2 ml-1" />}
                       </Badge>
                     );
                   })}
+                </div>
+                
+                {/* Plan Management - Coming Soon */}
+                <div className="mt-3 p-2 bg-gray-50 rounded border">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-medium text-gray-600">Plan Management</p>
+                      <p className="text-xs text-gray-500">Upgrade or cancel plans</p>
+                    </div>
+                    <Button variant="outline" size="sm" disabled className="text-xs h-6">
+                      <Settings className="h-3 w-3 mr-1" />
+                      Coming Soon
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -581,7 +622,7 @@ const SeatArrangement = () => {
             First Floor Layout (19 Seats)
           </CardTitle>
           <CardDescription>
-            Corner seats (1,2) at top-left, with vertical columns A, B, C and central door - Click on seats to book specific time slots
+            Corner seats (1,2) at top-left, with vertical columns A, B, C and central door - Click on seats to auto-book based on your plan
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -728,26 +769,6 @@ const SeatArrangement = () => {
             </div>
           </div>
 
-          {/* Book Button */}
-          {selectedSeat && (
-            <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Selected Seat: {selectedSeat}</p>
-                  <p className="text-sm text-gray-600">Ready to book this seat</p>
-                </div>
-                <div className="space-x-2">
-                  <Button variant="outline" onClick={() => setSelectedSeat(null)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleBookSeat}>
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Book Seat
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>
