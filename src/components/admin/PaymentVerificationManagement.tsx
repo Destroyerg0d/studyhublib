@@ -45,6 +45,7 @@ const PaymentVerificationManagement = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
+  const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null);
 
   const fetchVerifications = async () => {
     try {
@@ -122,9 +123,22 @@ const PaymentVerificationManagement = () => {
     };
   }, []);
 
-  const downloadPaymentProof = async (url: string, fileName: string) => {
+  const downloadPaymentProof = async (paymentProofUrl: string, fileName: string) => {
     try {
-      const response = await fetch(url);
+      // Extract the file path from the URL
+      const urlParts = paymentProofUrl.split('/');
+      const filePath = urlParts.slice(-2).join('/'); // Get user_id/timestamp.ext
+      
+      // Generate a fresh signed URL for download
+      const { data, error } = await supabase.storage
+        .from('payment-proofs')
+        .createSignedUrl(filePath, 60); // 1 minute for download
+      
+      if (error || !data) {
+        throw new Error('Failed to generate download URL');
+      }
+      
+      const response = await fetch(data.signedUrl);
       const blob = await response.blob();
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -144,6 +158,43 @@ const PaymentVerificationManagement = () => {
       toast({
         title: "Download failed",
         description: "Failed to download payment proof.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const generateImageUrl = async (paymentProofUrl: string): Promise<string> => {
+    try {
+      // Extract the file path from the URL
+      const urlParts = paymentProofUrl.split('/');
+      const filePath = urlParts.slice(-2).join('/'); // Get user_id/timestamp.ext
+      
+      // Generate a fresh signed URL for viewing
+      const { data, error } = await supabase.storage
+        .from('payment-proofs')
+        .createSignedUrl(filePath, 3600); // 1 hour for viewing
+      
+      if (error || !data) {
+        console.error('Error generating signed URL:', error);
+        return paymentProofUrl; // Fallback to original URL
+      }
+      
+      return data.signedUrl;
+    } catch (error) {
+      console.error('Error generating image URL:', error);
+      return paymentProofUrl; // Fallback to original URL
+    }
+  };
+
+  const handleViewImage = async (paymentProofUrl: string) => {
+    try {
+      const freshUrl = await generateImageUrl(paymentProofUrl);
+      window.open(freshUrl, '_blank');
+    } catch (error) {
+      console.error('Error opening image:', error);
+      toast({
+        title: "Error",
+        description: "Failed to open image. Please try downloading instead.",
         variant: "destructive",
       });
     }
@@ -480,7 +531,7 @@ const PaymentVerificationManagement = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => window.open(selectedVerification.payment_proof_url!, '_blank')}
+                        onClick={() => handleViewImage(selectedVerification.payment_proof_url!)}
                       >
                         <ExternalLink className="w-4 h-4 mr-1" />
                         View Full Size
@@ -498,18 +549,10 @@ const PaymentVerificationManagement = () => {
                       </Button>
                     </div>
                   </div>
-                  <div className="border rounded-lg p-4 bg-gray-50">
-                    <img 
-                      src={selectedVerification.payment_proof_url} 
-                      alt="Payment proof screenshot"
-                      className="max-w-full h-auto rounded cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={() => window.open(selectedVerification.payment_proof_url!, '_blank')}
-                      style={{ maxHeight: '400px' }}
-                    />
-                    <p className="text-sm text-muted-foreground mt-2 text-center">
-                      Click image to view full size or use buttons above to view/download
-                    </p>
-                  </div>
+                  <PaymentProofViewer 
+                    paymentProofUrl={selectedVerification.payment_proof_url}
+                    onViewFullSize={() => handleViewImage(selectedVerification.payment_proof_url!)}
+                  />
                 </div>
               )}
 
@@ -566,6 +609,75 @@ const PaymentVerificationManagement = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+};
+
+// Simple PaymentProofViewer component
+const PaymentProofViewer = ({ paymentProofUrl, onViewFullSize }: { paymentProofUrl: string; onViewFullSize: () => void }) => {
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    const loadImage = async () => {
+      try {
+        // Extract the file path from the URL
+        const urlParts = paymentProofUrl.split('/');
+        const filePath = urlParts.slice(-2).join('/'); // Get user_id/timestamp.ext
+        
+        // Generate a fresh signed URL for viewing
+        const { data, error } = await supabase.storage
+          .from('payment-proofs')
+          .createSignedUrl(filePath, 3600); // 1 hour for viewing
+        
+        if (error || !data) {
+          console.error('Error generating signed URL:', error);
+          setError(true);
+        } else {
+          setImageUrl(data.signedUrl);
+        }
+      } catch (error) {
+        console.error('Error loading image:', error);
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadImage();
+  }, [paymentProofUrl]);
+
+  if (loading) {
+    return (
+      <div className="border rounded-lg p-4 bg-gray-50 flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (error || !imageUrl) {
+    return (
+      <div className="border rounded-lg p-4 bg-gray-50 flex flex-col items-center justify-center h-64">
+        <AlertCircle className="w-12 h-12 text-muted-foreground mb-2" />
+        <p className="text-sm text-muted-foreground">Failed to load payment proof</p>
+        <p className="text-xs text-muted-foreground mt-1">Try downloading instead</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border rounded-lg p-4 bg-gray-50">
+      <img 
+        src={imageUrl} 
+        alt="Payment proof screenshot"
+        className="max-w-full h-auto rounded cursor-pointer hover:opacity-80 transition-opacity"
+        onClick={onViewFullSize}
+        style={{ maxHeight: '400px' }}
+      />
+      <p className="text-sm text-muted-foreground mt-2 text-center">
+        Click image to view full size or use buttons above to view/download
+      </p>
     </div>
   );
 };

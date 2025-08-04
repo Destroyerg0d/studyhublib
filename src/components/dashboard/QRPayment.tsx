@@ -63,11 +63,15 @@ const QRPayment = ({ plan, onSubmitted }: QRPaymentProps) => {
       throw new Error('Failed to upload payment proof');
     }
 
-    const { data } = supabase.storage
+    const { data, error: urlError } = await supabase.storage
       .from('payment-proofs')
-      .getPublicUrl(fileName);
+      .createSignedUrl(fileName, 365 * 24 * 60 * 60); // 1 year expiry
 
-    return data.publicUrl;
+    if (urlError || !data) {
+      throw new Error('Failed to generate signed URL for payment proof');
+    }
+
+    return data.signedUrl;
   };
 
   const handleSubmitVerification = async () => {
