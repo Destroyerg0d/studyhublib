@@ -305,6 +305,32 @@ const SeatArrangement = () => {
         return;
       }
 
+      // Check if user already has a booking for this time slot and subscription
+      const { data: existingBooking, error: checkError } = await supabase
+        .from('seat_bookings')
+        .select('id')
+        .eq('user_id', user?.id)
+        .eq('subscription_id', userSubscription.id)
+        .eq('time_slot', selectedTimeSlot)
+        .eq('status', 'active')
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError;
+      }
+
+      if (existingBooking) {
+        toast({
+          title: "Already Booked",
+          description: "You already have a seat booked for this time slot.",
+          variant: "destructive",
+        });
+        setConfirmDialogOpen(false);
+        setSelectedSeat(null);
+        setSelectedTimeSlot("");
+        return;
+      }
+
       // Create seat booking for the entire subscription duration
       const { error } = await supabase
         .from('seat_bookings')
