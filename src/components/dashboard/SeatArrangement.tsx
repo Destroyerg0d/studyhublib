@@ -284,14 +284,83 @@ const SeatArrangement = () => {
     }
 
     try {
-      // Check if seat is still available for the time slot
-      const { data: isAvailable } = await supabase
+      console.log("Booking attempt:", {
+        seat_number: selectedSeat,
+        user_id: user?.id,
+        subscription_id: userSubscription.id,
+        time_slot: selectedTimeSlot,
+        start_date: userSubscription.start_date,
+        end_date: userSubscription.end_date
+      });
+
+      // Check if user already has any booking for this subscription and time slot
+      const { data: existingUserBooking, error: userCheckError } = await supabase
+        .from('seat_bookings')
+        .select('id, seat_number')
+        .eq('user_id', user?.id)
+        .eq('subscription_id', userSubscription.id)
+        .eq('time_slot', selectedTimeSlot)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (userCheckError) {
+        console.error("Error checking user booking:", userCheckError);
+        throw userCheckError;
+      }
+
+      if (existingUserBooking) {
+        toast({
+          title: "Already Booked",
+          description: `You already have seat ${existingUserBooking.seat_number} booked for this time slot.`,
+          variant: "destructive",
+        });
+        setConfirmDialogOpen(false);
+        setSelectedSeat(null);
+        setSelectedTimeSlot("");
+        return;
+      }
+
+      // Check if this specific seat is already booked for this exact period
+      const { data: conflictingBookings, error: conflictError } = await supabase
+        .from('seat_bookings')
+        .select('id, user_id')
+        .eq('seat_number', selectedSeat)
+        .eq('time_slot', selectedTimeSlot)
+        .eq('start_date', userSubscription.start_date)
+        .eq('end_date', userSubscription.end_date)
+        .eq('status', 'active');
+
+      if (conflictError) {
+        console.error("Error checking conflicting bookings:", conflictError);
+        throw conflictError;
+      }
+
+      if (conflictingBookings && conflictingBookings.length > 0) {
+        console.log("Conflicting bookings found:", conflictingBookings);
+        toast({
+          title: "Seat Not Available",
+          description: "This seat is already booked for the selected time period.",
+          variant: "destructive",
+        });
+        setConfirmDialogOpen(false);
+        setSelectedSeat(null);
+        setSelectedTimeSlot("");
+        return;
+      }
+
+      // Check seat availability using the RPC function
+      const { data: isAvailable, error: rpcError } = await supabase
         .rpc('is_seat_available', {
           _seat_number: selectedSeat,
           _time_slot: selectedTimeSlot,
           _start_date: userSubscription.start_date,
           _end_date: userSubscription.end_date
         });
+
+      if (rpcError) {
+        console.error("Error checking seat availability:", rpcError);
+        throw rpcError;
+      }
 
       if (!isAvailable) {
         toast({
@@ -305,34 +374,8 @@ const SeatArrangement = () => {
         return;
       }
 
-      // Check if user already has a booking for this time slot and subscription
-      const { data: existingBooking, error: checkError } = await supabase
-        .from('seat_bookings')
-        .select('id')
-        .eq('user_id', user?.id)
-        .eq('subscription_id', userSubscription.id)
-        .eq('time_slot', selectedTimeSlot)
-        .eq('status', 'active')
-        .single();
-
-      if (checkError && checkError.code !== 'PGRST116') {
-        throw checkError;
-      }
-
-      if (existingBooking) {
-        toast({
-          title: "Already Booked",
-          description: "You already have a seat booked for this time slot.",
-          variant: "destructive",
-        });
-        setConfirmDialogOpen(false);
-        setSelectedSeat(null);
-        setSelectedTimeSlot("");
-        return;
-      }
-
       // Create seat booking for the entire subscription duration
-      const { error } = await supabase
+      const { data: newBooking, error } = await supabase
         .from('seat_bookings')
         .insert({
           seat_number: selectedSeat,
@@ -342,9 +385,16 @@ const SeatArrangement = () => {
           start_date: userSubscription.start_date,
           end_date: userSubscription.end_date,
           status: 'active'
-        });
+        })
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error inserting booking:", error);
+        throw error;
+      }
+
+      console.log("Booking created successfully:", newBooking);
 
       toast({
         title: "Seat booked successfully!",
