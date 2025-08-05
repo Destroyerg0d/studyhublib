@@ -299,7 +299,7 @@ const SeatArrangement = () => {
             error: deleteError
           } = await supabase.from('seat_bookings').delete().in('id', inactiveBookings.map(b => b.id));
           if (deleteError) {
-            console.error("Error deleting inactive bookings:", deleteError);
+            
             throw deleteError;
           }
         }
@@ -316,7 +316,7 @@ const SeatArrangement = () => {
         _end_date: userSubscription.end_date
       });
       if (rpcError) {
-        console.error("Error checking seat availability:", rpcError);
+        
         throw rpcError;
       }
       if (!isAvailable) {
@@ -345,10 +345,8 @@ const SeatArrangement = () => {
         status: 'active'
       }).select().single();
       if (error) {
-        console.error("Error inserting booking:", error);
         throw error;
       }
-      console.log("Booking created successfully:", newBooking);
       toast({
         title: "Seat booked successfully!",
         description: `You have booked seat ${selectedSeat} for ${getTimeSlotLabel(selectedTimeSlot)} for the entire duration of your ${userSubscription.plans.name} plan.`
@@ -358,7 +356,7 @@ const SeatArrangement = () => {
       setSelectedTimeSlot("");
       fetchData();
     } catch (error) {
-      console.error('Error booking seat:', error);
+      
       toast({
         title: "Error",
         description: "Failed to book seat. Please try again.",

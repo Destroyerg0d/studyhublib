@@ -279,6 +279,57 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_verifications: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          payment_method: string
+          payment_proof_url: string | null
+          plan_id: string
+          rejection_reason: string | null
+          status: string
+          submitted_at: string
+          transaction_reference: string | null
+          updated_at: string
+          user_id: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          payment_method?: string
+          payment_proof_url?: string | null
+          plan_id: string
+          rejection_reason?: string | null
+          status?: string
+          submitted_at?: string
+          transaction_reference?: string | null
+          updated_at?: string
+          user_id: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          payment_method?: string
+          payment_proof_url?: string | null
+          plan_id?: string
+          rejection_reason?: string | null
+          status?: string
+          submitted_at?: string
+          transaction_reference?: string | null
+          updated_at?: string
+          user_id?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount: number
@@ -739,6 +790,30 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       verification_requests: {
         Row: {
           aadhar_back_url: string | null
@@ -814,6 +889,13 @@ export type Database = {
           end_date: string
         }[]
       }
+      has_role: {
+        Args: {
+          _user_id: string
+          _role: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: boolean
+      }
       is_admin: {
         Args: { user_id?: string }
         Returns: boolean
@@ -849,6 +931,7 @@ export type Database = {
       }
     }
     Enums: {
+      app_role: "admin" | "student"
       food_category: "snacks" | "beverages" | "meals" | "desserts" | "healthy"
       time_slot_type: "full_day" | "morning" | "evening" | "night"
     }
@@ -978,6 +1061,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "student"],
       food_category: ["snacks", "beverages", "meals", "desserts", "healthy"],
       time_slot_type: ["full_day", "morning", "evening", "night"],
     },
