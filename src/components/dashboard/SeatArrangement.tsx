@@ -320,32 +320,65 @@ const SeatArrangement = () => {
         return;
       }
 
-      // Check if this specific seat is already booked for this exact period
-      const { data: conflictingBookings, error: conflictError } = await supabase
+      // Check if this specific seat has ANY booking (including cancelled) for this exact period
+      const { data: existingBookings, error: conflictError } = await supabase
         .from('seat_bookings')
-        .select('id, user_id')
+        .select('id, user_id, status')
         .eq('seat_number', selectedSeat)
         .eq('time_slot', selectedTimeSlot)
         .eq('start_date', userSubscription.start_date)
-        .eq('end_date', userSubscription.end_date)
-        .eq('status', 'active');
+        .eq('end_date', userSubscription.end_date);
 
       if (conflictError) {
-        console.error("Error checking conflicting bookings:", conflictError);
+        console.error("Error checking existing bookings:", conflictError);
         throw conflictError;
       }
 
-      if (conflictingBookings && conflictingBookings.length > 0) {
-        console.log("Conflicting bookings found:", conflictingBookings);
-        toast({
-          title: "Seat Not Available",
-          description: "This seat is already booked for the selected time period.",
-          variant: "destructive",
-        });
-        setConfirmDialogOpen(false);
-        setSelectedSeat(null);
-        setSelectedTimeSlot("");
-        return;
+      console.log("Existing bookings found:", existingBookings);
+
+      if (existingBookings && existingBookings.length > 0) {
+        // Check if any active booking exists for a different user
+        const activeBooking = existingBookings.find(b => b.status === 'active' && b.user_id !== user?.id);
+        if (activeBooking) {
+          toast({
+            title: "Seat Not Available",
+            description: "This seat is already booked by another user for this time period.",
+            variant: "destructive",
+          });
+          setConfirmDialogOpen(false);
+          setSelectedSeat(null);
+          setSelectedTimeSlot("");
+          return;
+        }
+
+        // Check if user already has an active booking
+        const userActiveBooking = existingBookings.find(b => b.status === 'active' && b.user_id === user?.id);
+        if (userActiveBooking) {
+          toast({
+            title: "Already Booked",
+            description: "You already have this seat booked for this time period.",
+            variant: "destructive",
+          });
+          setConfirmDialogOpen(false);
+          setSelectedSeat(null);
+          setSelectedTimeSlot("");
+          return;
+        }
+
+        // If there are only cancelled/expired bookings, delete them to avoid constraint violation
+        const inactiveBookings = existingBookings.filter(b => b.status !== 'active');
+        if (inactiveBookings.length > 0) {
+          console.log("Deleting inactive bookings:", inactiveBookings);
+          const { error: deleteError } = await supabase
+            .from('seat_bookings')
+            .delete()
+            .in('id', inactiveBookings.map(b => b.id));
+          
+          if (deleteError) {
+            console.error("Error deleting inactive bookings:", deleteError);
+            throw deleteError;
+          }
+        }
       }
 
       // Check seat availability using the RPC function
