@@ -68,23 +68,37 @@ const Verification = () => {
     try {
       const formData = new FormData(e.target as HTMLFormElement);
       
+      console.log('Starting verification submission for user:', profile.id);
+      
       // Upload Aadhar front
       const frontFileName = `${profile.id}/aadhar_front_${Date.now()}.${aadharFront.name.split('.').pop()}`;
+      console.log('Uploading front file:', frontFileName);
+      
       const { data: frontUpload, error: frontError } = await supabase.storage
         .from('verification-docs')
         .upload(frontFileName, aadharFront);
 
-      if (frontError) throw frontError;
+      if (frontError) {
+        console.error('Front upload error:', frontError);
+        throw frontError;
+      }
+      console.log('Front upload successful:', frontUpload);
 
       // Upload Aadhar back
       const backFileName = `${profile.id}/aadhar_back_${Date.now()}.${aadharBack.name.split('.').pop()}`;
+      console.log('Uploading back file:', backFileName);
+      
       const { data: backUpload, error: backError } = await supabase.storage
         .from('verification-docs')
         .upload(backFileName, aadharBack);
 
-      if (backError) throw backError;
+      if (backError) {
+        console.error('Back upload error:', backError);
+        throw backError;
+      }
+      console.log('Back upload successful:', backUpload);
 
-      // Get signed URLs
+      // Get public URLs
       const { data: frontUrl } = supabase.storage
         .from('verification-docs')
         .getPublicUrl(frontUpload.path);
@@ -93,33 +107,54 @@ const Verification = () => {
         .from('verification-docs')
         .getPublicUrl(backUpload.path);
 
+      console.log('Got URLs:', { front: frontUrl.publicUrl, back: backUrl.publicUrl });
+
       // Update profile with form data
+      const profileUpdateData = {
+        name: formData.get('fullname') as string,
+        phone: formData.get('phone') as string,
+        date_of_birth: formData.get('dob') as string,
+        address: formData.get('address') as string,
+        emergency_contact_name: formData.get('emergency-name') as string,
+        emergency_contact_phone: formData.get('emergency-phone') as string,
+        emergency_contact_relation: formData.get('relationship') as string,
+      };
+      
+      console.log('Updating profile with:', profileUpdateData);
+      
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({
-          name: formData.get('fullname') as string,
-          phone: formData.get('phone') as string,
-          date_of_birth: formData.get('dob') as string,
-          address: formData.get('address') as string,
-          emergency_contact_name: formData.get('emergency-name') as string,
-          emergency_contact_phone: formData.get('emergency-phone') as string,
-          emergency_contact_relation: formData.get('relationship') as string,
-        })
+        .update(profileUpdateData)
         .eq('id', profile.id);
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+        throw profileError;
+      }
+      console.log('Profile updated successfully');
 
       // Create verification request
-      const { error: verificationError } = await supabase
+      const verificationData = {
+        user_id: profile.id,
+        aadhar_front_url: frontUrl.publicUrl,
+        aadhar_back_url: backUrl.publicUrl,
+        status: 'pending'
+      };
+      
+      console.log('Creating verification request with:', verificationData);
+      
+      const { data: verificationRequest, error: verificationError } = await supabase
         .from('verification_requests')
-        .insert({
-          user_id: profile.id,
-          aadhar_front_url: frontUrl.publicUrl,
-          aadhar_back_url: backUrl.publicUrl,
-          status: 'pending'
-        });
+        .insert(verificationData)
+        .select()
+        .single();
 
-      if (verificationError) throw verificationError;
+      if (verificationError) {
+        console.error('Verification request error:', verificationError);
+        throw verificationError;
+      }
+      
+      console.log('Verification request created successfully:', verificationRequest);
 
       toast({
         title: "Verification submitted!",
@@ -129,6 +164,10 @@ const Verification = () => {
       // Reset form
       setAadharFront(null);
       setAadharBack(null);
+      
+      // Reset form inputs
+      const form = e.target as HTMLFormElement;
+      form.reset();
       
     } catch (error: any) {
       console.error('Verification submission error:', error);
