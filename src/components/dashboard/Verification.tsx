@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import {
   CheckCircle,
   Upload,
@@ -43,16 +44,102 @@ const Verification = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!profile?.id) {
+      toast({
+        title: "Error",
+        description: "User not found. Please try logging in again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!aadharFront || !aadharBack) {
+      toast({
+        title: "Error", 
+        description: "Please upload both sides of your Aadhar card.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
-    // Simulate verification submission
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      const formData = new FormData(e.target as HTMLFormElement);
+      
+      // Upload Aadhar front
+      const frontFileName = `${profile.id}/aadhar_front_${Date.now()}.${aadharFront.name.split('.').pop()}`;
+      const { data: frontUpload, error: frontError } = await supabase.storage
+        .from('verification-docs')
+        .upload(frontFileName, aadharFront);
+
+      if (frontError) throw frontError;
+
+      // Upload Aadhar back
+      const backFileName = `${profile.id}/aadhar_back_${Date.now()}.${aadharBack.name.split('.').pop()}`;
+      const { data: backUpload, error: backError } = await supabase.storage
+        .from('verification-docs')
+        .upload(backFileName, aadharBack);
+
+      if (backError) throw backError;
+
+      // Get signed URLs
+      const { data: frontUrl } = supabase.storage
+        .from('verification-docs')
+        .getPublicUrl(frontUpload.path);
+      
+      const { data: backUrl } = supabase.storage
+        .from('verification-docs')
+        .getPublicUrl(backUpload.path);
+
+      // Update profile with form data
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          name: formData.get('fullname') as string,
+          phone: formData.get('phone') as string,
+          date_of_birth: formData.get('dob') as string,
+          address: formData.get('address') as string,
+          emergency_contact_name: formData.get('emergency-name') as string,
+          emergency_contact_phone: formData.get('emergency-phone') as string,
+          emergency_contact_relation: formData.get('relationship') as string,
+        })
+        .eq('id', profile.id);
+
+      if (profileError) throw profileError;
+
+      // Create verification request
+      const { error: verificationError } = await supabase
+        .from('verification_requests')
+        .insert({
+          user_id: profile.id,
+          aadhar_front_url: frontUrl.publicUrl,
+          aadhar_back_url: backUrl.publicUrl,
+          status: 'pending'
+        });
+
+      if (verificationError) throw verificationError;
+
       toast({
         title: "Verification submitted!",
         description: "Your documents have been submitted for review. You'll be notified once verified.",
       });
-    }, 2000);
+
+      // Reset form
+      setAadharFront(null);
+      setAadharBack(null);
+      
+    } catch (error: any) {
+      console.error('Verification submission error:', error);
+      toast({
+        title: "Submission failed",
+        description: error.message || "Failed to submit verification. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const verificationSteps = [
@@ -183,24 +270,24 @@ const Verification = () => {
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="fullname">Full Name</Label>
-                  <Input id="fullname" defaultValue={profile?.name || ''} required />
+                  <Input id="fullname" name="fullname" defaultValue={profile?.name || ''} required />
                 </div>
                 <div>
                   <Label htmlFor="email">Email Address</Label>
-                  <Input id="email" type="email" defaultValue={profile?.email || ''} disabled />
+                  <Input id="email" name="email" type="email" defaultValue={profile?.email || ''} disabled />
                 </div>
                 <div>
                   <Label htmlFor="phone">Phone Number</Label>
-                  <Input id="phone" type="tel" placeholder="+91 12345 67890" required />
+                  <Input id="phone" name="phone" type="tel" placeholder="+91 12345 67890" required />
                 </div>
                 <div>
                   <Label htmlFor="dob">Date of Birth</Label>
-                  <Input id="dob" type="date" required />
+                  <Input id="dob" name="dob" type="date" required />
                 </div>
               </div>
               <div>
                 <Label htmlFor="address">Complete Address</Label>
-                <Textarea id="address" placeholder="Enter your complete address" required />
+                <Textarea id="address" name="address" placeholder="Enter your complete address" required />
               </div>
             </CardContent>
           </Card>
@@ -293,15 +380,15 @@ const Verification = () => {
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="emergency-name">Contact Name</Label>
-                  <Input id="emergency-name" placeholder="Parent/Guardian name" required />
+                  <Input id="emergency-name" name="emergency-name" placeholder="Parent/Guardian name" required />
                 </div>
                 <div>
                   <Label htmlFor="emergency-phone">Contact Phone</Label>
-                  <Input id="emergency-phone" type="tel" placeholder="+91 12345 67890" required />
+                  <Input id="emergency-phone" name="emergency-phone" type="tel" placeholder="+91 12345 67890" required />
                 </div>
                 <div>
                   <Label htmlFor="relationship">Relationship</Label>
-                  <Input id="relationship" placeholder="e.g., Father, Mother, Guardian" required />
+                  <Input id="relationship" name="relationship" placeholder="e.g., Father, Mother, Guardian" required />
                 </div>
               </div>
             </CardContent>
