@@ -69,7 +69,7 @@ const VerificationManagement = () => {
         .from('verification_requests')
         .select(`
           *,
-          profiles!verification_requests_user_id_fkey (
+          profiles!user_id (
             name,
             email,
             phone,
