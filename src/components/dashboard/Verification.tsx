@@ -46,6 +46,7 @@ const Verification = () => {
     e.preventDefault();
     
     if (!profile?.id) {
+      console.error('No profile found:', profile);
       toast({
         title: "Error",
         description: "User not found. Please try logging in again.",
@@ -55,6 +56,7 @@ const Verification = () => {
     }
 
     if (!aadharFront || !aadharBack) {
+      console.error('Missing files:', { aadharFront, aadharBack });
       toast({
         title: "Error", 
         description: "Please upload both sides of your Aadhar card.",
@@ -69,6 +71,16 @@ const Verification = () => {
       const formData = new FormData(e.target as HTMLFormElement);
       
       console.log('Starting verification submission for user:', profile.id);
+      console.log('Profile data:', profile);
+      console.log('Form data:', {
+        fullname: formData.get('fullname'),
+        phone: formData.get('phone'),
+        dob: formData.get('dob'),
+        address: formData.get('address'),
+        emergencyName: formData.get('emergency-name'),
+        emergencyPhone: formData.get('emergency-phone'),
+        relationship: formData.get('relationship')
+      });
       
       // Upload Aadhar front
       const frontFileName = `${profile.id}/aadhar_front_${Date.now()}.${aadharFront.name.split('.').pop()}`;
