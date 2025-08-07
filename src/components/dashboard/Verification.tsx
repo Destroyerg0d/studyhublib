@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 
 const Verification = () => {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aadharFront, setAadharFront] = useState<File | null>(null);
@@ -44,6 +44,12 @@ const Verification = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    console.log('=== VERIFICATION SUBMISSION DEBUG START ===');
+    console.log('Current user session:', user);
+    console.log('Profile object:', profile);
+    console.log('User authenticated:', !!user);
+    console.log('Profile ID:', profile?.id);
     
     if (!profile?.id) {
       console.error('No profile found:', profile);
@@ -194,7 +200,14 @@ const Verification = () => {
       form.reset();
       
     } catch (error: any) {
-      console.error('Verification submission error:', error);
+      console.error('=== VERIFICATION SUBMISSION ERROR ===');
+      console.error('Full error object:', error);
+      console.error('Error message:', error.message);
+      console.error('Error code:', error.code);
+      console.error('Error details:', error.details);
+      console.error('Error hint:', error.hint);
+      console.error('Current user context:', user);
+      console.error('Current profile context:', profile);
       
       // Provide more specific error messages
       let errorMessage = "Failed to submit verification. Please try again.";
@@ -207,6 +220,8 @@ const Verification = () => {
         errorMessage = "Verification request already exists. Please contact support if you need to update it.";
       } else if (error.code === '42501') {
         errorMessage = "Permission denied. Please make sure you are logged in with the correct account.";
+      } else if (error.message?.includes('Row Level Security')) {
+        errorMessage = "Database permission error. Please contact support.";
       }
       
       toast({
