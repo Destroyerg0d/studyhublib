@@ -163,6 +163,18 @@ const Verification = () => {
 
       if (verificationError) {
         console.error('Verification request error:', verificationError);
+        console.log('Error details:', {
+          message: verificationError.message,
+          details: verificationError.details,
+          hint: verificationError.hint,
+          code: verificationError.code
+        });
+        
+        // Check if it's an RLS policy error
+        if (verificationError.code === '42501' || verificationError.message?.includes('policy')) {
+          throw new Error('Authentication required. Please make sure you are logged in.');
+        }
+        
         throw verificationError;
       }
       
@@ -183,9 +195,23 @@ const Verification = () => {
       
     } catch (error: any) {
       console.error('Verification submission error:', error);
+      
+      // Provide more specific error messages
+      let errorMessage = "Failed to submit verification. Please try again.";
+      
+      if (error.message?.includes('Authentication required')) {
+        errorMessage = "Please log in to submit verification documents.";
+      } else if (error.message?.includes('not authenticated')) {
+        errorMessage = "Session expired. Please log in again.";
+      } else if (error.code === '23505') {
+        errorMessage = "Verification request already exists. Please contact support if you need to update it.";
+      } else if (error.code === '42501') {
+        errorMessage = "Permission denied. Please make sure you are logged in with the correct account.";
+      }
+      
       toast({
         title: "Submission failed",
-        description: error.message || "Failed to submit verification. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
