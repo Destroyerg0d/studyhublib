@@ -96,11 +96,11 @@ const TimetableManagement = () => {
         { name: "Night Study", time: "01:00", end_time: "06:00", type: "study", description: "Deep focus hours", active: true, plan_type: "full_shift", date: dateStr },
         { name: "Morning Transition", time: "06:00", end_time: "08:00", type: "break", description: "Shift transition", active: true, plan_type: "full_shift", date: dateStr },
         
-        // Morning Plan (6 AM - 2 PM)
-        { name: "Morning Opening", time: "06:00", end_time: "06:30", type: "opening", description: "Morning session begins", active: true, plan_type: "morning", date: dateStr },
-        { name: "Morning Study 1", time: "06:30", end_time: "10:00", type: "study", description: "First study block", active: true, plan_type: "morning", date: dateStr },
-        { name: "Morning Break", time: "10:00", end_time: "10:30", type: "break", description: "Tea break", active: true, plan_type: "morning", date: dateStr },
-        { name: "Morning Study 2", time: "10:30", end_time: "14:00", type: "study", description: "Second study block", active: true, plan_type: "morning", date: dateStr },
+        // Morning Plan (8 AM - 2 PM)
+        { name: "Morning Opening", time: "08:00", end_time: "08:30", type: "opening", description: "Morning session begins", active: true, plan_type: "morning", date: dateStr },
+        { name: "Morning Study 1", time: "08:30", end_time: "11:30", type: "study", description: "First study block", active: true, plan_type: "morning", date: dateStr },
+        { name: "Morning Break", time: "11:30", end_time: "12:00", type: "break", description: "Tea break", active: true, plan_type: "morning", date: dateStr },
+        { name: "Morning Study 2", time: "12:00", end_time: "14:00", type: "study", description: "Second study block", active: true, plan_type: "morning", date: dateStr },
         
         // Evening Plan (2 PM - 10 PM)
         { name: "Evening Opening", time: "14:00", end_time: "14:30", type: "opening", description: "Evening session begins", active: true, plan_type: "evening", date: dateStr },
@@ -108,14 +108,14 @@ const TimetableManagement = () => {
         { name: "Evening Break", time: "17:30", end_time: "18:00", type: "break", description: "Dinner break", active: true, plan_type: "evening", date: dateStr },
         { name: "Evening Study 2", time: "18:00", end_time: "22:00", type: "study", description: "Second evening block", active: true, plan_type: "evening", date: dateStr },
         
-        // Full Day Plan (6 AM - 10 PM)
-        { name: "Full Day Opening", time: "06:00", end_time: "06:30", type: "opening", description: "Full day access begins", active: true, plan_type: "full_day", date: dateStr },
-        { name: "Full Day Study 1", time: "06:30", end_time: "12:00", type: "study", description: "Morning study session", active: true, plan_type: "full_day", date: dateStr },
-        { name: "Lunch Break", time: "12:00", end_time: "13:00", type: "break", description: "Lunch break", active: true, plan_type: "full_day", date: dateStr },
-        { name: "Full Day Study 2", time: "13:00", end_time: "18:00", type: "study", description: "Afternoon study session", active: true, plan_type: "full_day", date: dateStr },
+        // Full Day Plan (8 AM - 10 PM)
+        { name: "Full Day Opening", time: "08:00", end_time: "08:30", type: "opening", description: "Full day access begins", active: true, plan_type: "full_day", date: dateStr },
+        { name: "Full Day Study 1", time: "08:30", end_time: "13:00", type: "study", description: "Morning study session", active: true, plan_type: "full_day", date: dateStr },
+        { name: "Lunch Break", time: "13:00", end_time: "14:00", type: "break", description: "Lunch break", active: true, plan_type: "full_day", date: dateStr },
+        { name: "Full Day Study 2", time: "14:00", end_time: "18:00", type: "study", description: "Afternoon study session", active: true, plan_type: "full_day", date: dateStr },
         { name: "Evening Break", time: "18:00", end_time: "18:30", type: "break", description: "Evening break", active: true, plan_type: "full_day", date: dateStr },
         { name: "Full Day Study 3", time: "18:30", end_time: "22:00", type: "study", description: "Evening study session", active: true, plan_type: "full_day", date: dateStr },
-        { name: "Daily Closing", time: "22:00", end_time: "23:59", type: "closing", description: "Day session ends", active: true, plan_type: "full_day", date: dateStr },
+        { name: "Daily Closing", time: "22:00", end_time: "23:59", type: "closing", description: "Day session ends", active: true, plan_type: "full_day", date: dateStr }
       ];
       
       defaultSlots.push(...daySlots);
@@ -459,7 +459,7 @@ const TimetableManagement = () => {
             </div>
             <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
               <h4 className="font-semibold text-purple-800 mb-2">Morning</h4>
-              <p className="text-sm text-purple-700">6:00 AM - 2:00 PM study session</p>
+              <p className="text-sm text-purple-700">8:00 AM - 2:00 PM study session</p>
             </div>
             <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
               <h4 className="font-semibold text-green-800 mb-2">Evening</h4>
@@ -467,7 +467,7 @@ const TimetableManagement = () => {
             </div>
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <h4 className="font-semibold text-blue-800 mb-2">Full Day</h4>
-              <p className="text-sm text-blue-700">6:00 AM - 10:00 PM comprehensive access</p>
+              <p className="text-sm text-blue-700">8:00 AM - 10:00 PM comprehensive access</p>
             </div>
           </div>
         </CardContent>

@@ -370,13 +370,13 @@ const SeatArrangement = () => {
   const getTimeSlotLabel = (timeSlot: string) => {
     switch (timeSlot) {
       case 'full_day':
-        return 'Full Day (24/7)';
+        return 'Full Day (8AM-10PM)';
       case 'morning':
         return 'Morning (8AM-2PM)';
       case 'evening':
-        return 'Evening (2PM-8PM)';
+        return 'Evening (2PM-10PM)';
       case 'night':
-        return 'Night (8PM-8AM)';
+        return 'Night (10PM-6AM)';
       default:
         return timeSlot;
     }
@@ -590,7 +590,7 @@ const SeatArrangement = () => {
             </div>
             <div className="p-4 bg-green-50 rounded-lg border">
               <h4 className="font-semibold text-green-900">Evening</h4>
-              <p className="text-sm text-green-700">3:00 PM - 10:00 PM</p>
+              <p className="text-sm text-green-700">2:00 PM - 10:00 PM</p>
               <div className="w-4 h-4 bg-green-100 border border-green-300 rounded mt-2"></div>
             </div>
             <div className="p-4 bg-indigo-50 rounded-lg border">

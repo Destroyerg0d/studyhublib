@@ -87,38 +87,38 @@ const FeesPayment = () => {
     {
       type: 'day',
       name: 'Full Day',
-      timing: '6:00 AM - 10:00 PM',
-      description: '16 hours of productive study time',
+      timing: '8:00 AM - 10:00 PM',
+      description: '14 hours of productive study time',
       icon: Sun,
       color: 'from-yellow-400 to-orange-500',
       textColor: 'text-yellow-700',
       bgColor: 'bg-yellow-50',
       borderColor: 'border-yellow-200',
-      hours: '16 hours'
+      hours: '14 hours'
     },
     {
       type: 'morning',
       name: 'Morning Shift',
-      timing: '6:00 AM - 3:00 PM',
+      timing: '8:00 AM - 2:00 PM',
       description: 'Perfect for early birds and fresh minds',
       icon: Sun,
       color: 'from-orange-400 to-amber-500',
       textColor: 'text-orange-700',
       bgColor: 'bg-orange-50',
       borderColor: 'border-orange-200',
-      hours: '9 hours'
+      hours: '6 hours'
     },
     {
       type: 'evening',
       name: 'Evening Shift',
-      timing: '3:00 PM - 10:00 PM',
+      timing: '2:00 PM - 10:00 PM',
       description: 'Ideal for working professionals',
       icon: Sun,
       color: 'from-amber-400 to-yellow-500',
       textColor: 'text-amber-700',
       bgColor: 'bg-amber-50',
       borderColor: 'border-amber-200',
-      hours: '7 hours'
+      hours: '8 hours'
     },
     {
       type: 'night',

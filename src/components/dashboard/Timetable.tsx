@@ -308,11 +308,11 @@ const Timetable = () => {
             </div>
             <div className="flex items-center space-x-2">
               <div className="w-4 h-4 bg-purple-500 rounded"></div>
-              <span className="text-sm">Morning (8 AM - 3 PM)</span>
+              <span className="text-sm">Morning (8 AM - 2 PM)</span>
             </div>
             <div className="flex items-center space-x-2">
               <div className="w-4 h-4 bg-green-500 rounded"></div>
-              <span className="text-sm">Evening (3 PM - 10 PM)</span>
+              <span className="text-sm">Evening (2 PM - 10 PM)</span>
             </div>
             <div className="flex items-center space-x-2">
               <div className="w-4 h-4 bg-blue-500 rounded"></div>

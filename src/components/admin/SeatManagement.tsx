@@ -347,10 +347,10 @@ const SeatManagement = () => {
 
   const getTimeSlotLabel = (timeSlot: string) => {
     switch (timeSlot) {
-      case 'full_day': return 'Full Day (24/7)';
+      case 'full_day': return 'Full Day (8AM-10PM)';
       case 'morning': return 'Morning (8AM-2PM)';
-      case 'evening': return 'Evening (2PM-8PM)';
-      case 'night': return 'Night (8PM-8AM)';
+      case 'evening': return 'Evening (2PM-10PM)';
+      case 'night': return 'Night (10PM-6AM)';
       default: return timeSlot;
     }
   };
@@ -740,9 +740,9 @@ const SeatManagement = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="morning">Morning (8AM-2PM)</SelectItem>
-                  <SelectItem value="evening">Evening (2PM-8PM)</SelectItem>
-                  <SelectItem value="night">Night (8PM-8AM)</SelectItem>
-                  <SelectItem value="full_day">Full Day (24/7)</SelectItem>
+                  <SelectItem value="evening">Evening (2PM-10PM)</SelectItem>
+                  <SelectItem value="night">Night (10PM-6AM)</SelectItem>
+                  <SelectItem value="full_day">Full Day (8AM-10PM)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

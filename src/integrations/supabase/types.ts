@@ -914,6 +914,29 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: number
       }
+      submit_verification: {
+        Args:
+          | {
+              _name: string
+              _phone: string
+              _dob: string
+              _address: string
+              _emergency_name: string
+              _emergency_phone: string
+              _emergency_relation: string
+              _aadhar_front_url: string
+              _aadhar_back_url: string
+            }
+          | {
+              p_user_id: string
+              p_plan_id: string
+              p_amount: number
+              p_payment_proof_url: string
+              p_payment_method?: string
+              p_transaction_reference?: string
+            }
+        Returns: string
+      }
       validate_coupon: {
         Args: {
           _coupon_code: string
