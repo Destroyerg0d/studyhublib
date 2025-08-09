@@ -62,6 +62,7 @@ const FeesPayment = () => {
         .from('payments')
         .select('*, plans(*)')
         .eq('user_id', user.id)
+        .eq('status', 'paid')
         .order('created_at', { ascending: false })
         .limit(10);
 
