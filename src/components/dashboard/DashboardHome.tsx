@@ -74,7 +74,7 @@ const DashboardHome = () => {
 
       if (subscriptionError) throw subscriptionError;
 
-      // Fetch total payments
+      // Fetch total payments (paid payments)
       const { data: paymentsData, error: paymentsError } = await supabase
         .from('payments')
         .select('amount')
@@ -82,6 +82,15 @@ const DashboardHome = () => {
         .eq('status', 'paid');
 
       if (paymentsError) throw paymentsError;
+
+      // Fetch approved manual verifications (e.g., QR payments approved by admin)
+      const { data: approvedVerifications, error: verificationsError } = await supabase
+        .from('payment_verifications' as any)
+        .select('amount')
+        .eq('user_id', profile.id)
+        .eq('status', 'approved');
+
+      if (verificationsError) throw verificationsError;
 
       // Fetch recent activities
       const activities: UserActivity[] = [];
@@ -117,8 +126,20 @@ const DashboardHome = () => {
         status: profile.verified ? 'completed' : 'pending'
       });
 
-      const totalPayments = paymentsData?.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0) || 0;
-      const currentSeat = seatData?.length ? `${seatData[0].seat_number} (${seatData[0].time_slot})` : null;
+      const paidSum = (paymentsData as any[])?.reduce((sum, p: any) => sum + (Number(p.amount) || 0), 0) || 0;
+      const approvedSum = (approvedVerifications as any[])?.reduce((sum, v: any) => sum + (Number(v.amount) || 0), 0) || 0;
+      const totalPayments = paidSum + approvedSum;
+
+      const timeSlotLabel = (slot?: string) => {
+        switch ((slot || '').toLowerCase()) {
+          case 'full_day': return 'Full Day';
+          case 'morning': return 'Morning';
+          case 'evening': return 'Evening';
+          case 'night': return 'Night';
+          default: return slot || '';
+        }
+      };
+      const currentSeat = seatData?.length ? `${seatData[0].seat_number}{${timeSlotLabel(seatData[0].time_slot)}}` : null;
       const activeSubscription = subscriptionData?.length > 0;
       const nextPaymentDue = subscriptionData?.length ? new Date(subscriptionData[0].end_date).toLocaleDateString() : null;
 
