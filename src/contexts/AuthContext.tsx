@@ -194,21 +194,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const resetPassword = async (email: string): Promise<{ success: boolean; error?: string }> => {
     try {
       console.log('Attempting password reset for:', email);
-      
-      // Check if user exists first
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('email', email)
-        .single();
-
-      if (!profiles) {
-        console.log('No user found with email:', email);
-        return { success: false, error: 'No account found with this email address' };
-      }
 
       const redirectUrl = `${window.location.origin}/auth?reset=true`;
-      
+
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: redirectUrl,
       });

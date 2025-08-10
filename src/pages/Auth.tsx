@@ -20,6 +20,9 @@ const Auth = () => {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
   const [activeTab, setActiveTab] = useState("login");
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [accountCheck, setAccountCheck] = useState<null | "found" | "not-found">(null);
+  const [checkingAccount, setCheckingAccount] = useState(false);
   const { login, register, resetPassword, user, profile } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -188,49 +191,57 @@ const Auth = () => {
     }
   };
 
-  const handleForgotPasswordLink = async () => {
-    const emailInput = document.getElementById('login-email') as HTMLInputElement;
-    const email = emailInput?.value;
+  const handleForgotPasswordLink = () => {
+    const emailInput = document.getElementById('login-email') as HTMLInputElement | null;
+    const email = emailInput?.value?.trim() || '';
+    setForgotEmail(email);
+    setAccountCheck(null);
+    setActiveTab('forgot');
+  };
 
-    if (!email) {
-      toast({
-        title: "Email required",
-        description: "Please enter your email address first.",
-        variant: "destructive",
-      });
+  const handleCheckAccount = async () => {
+    if (!forgotEmail) {
+      toast({ title: 'Email required', description: 'Please enter your email address.', variant: 'destructive' });
       return;
     }
-
-    setIsLoading(true);
-    console.log('Forgot password link clicked with email:', email);
-
+    setCheckingAccount(true);
     try {
-      const result = await resetPassword(email);
-      if (result.success) {
-        toast({
-          title: "Password reset email sent!",
-          description: "Please check your email for instructions to reset your password.",
-        });
+      const { data } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', forgotEmail)
+        .maybeSingle();
+
+      if (data) {
+        setAccountCheck('found');
+        toast({ title: 'Account found', description: 'We located your account. You can send the reset email now.' });
       } else {
-        console.error('Password reset failed:', result.error);
-        toast({
-          title: "Failed to send reset email",
-          description: result.error || "Please check your email address and try again.",
-          variant: "destructive",
-        });
+        setAccountCheck('not-found');
+        toast({ title: 'Account not found', description: 'We could not find this email in profiles. You can still try sending the reset email.', variant: 'destructive' });
       }
-    } catch (error) {
-      console.error('Password reset error:', error);
-      toast({
-        title: "Error",
-        description: "Something went wrong. Please try again.",
-        variant: "destructive",
-      });
+    } catch (e) {
+      setAccountCheck(null);
+      toast({ title: 'Check failed', description: 'Please try again.', variant: 'destructive' });
     } finally {
-      setIsLoading(false);
+      setCheckingAccount(false);
     }
   };
 
+  const handleSendReset = async () => {
+    if (!forgotEmail) {
+      toast({ title: 'Email required', description: 'Please enter your email address.', variant: 'destructive' });
+      return;
+    }
+    setIsLoading(true);
+    const result = await resetPassword(forgotEmail);
+    setIsLoading(false);
+    if (result.success) {
+      toast({ title: 'Password reset email sent!', description: 'Please check your inbox for the reset link.' });
+      setActiveTab('login');
+    } else {
+      toast({ title: 'Failed to send reset email', description: result.error || 'Please try again.', variant: 'destructive' });
+    }
+  };
   const handleUpdatePassword = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
@@ -316,9 +327,10 @@ const Auth = () => {
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className={`grid w-full ${isPasswordReset ? 'grid-cols-1' : 'grid-cols-2'}`}>
+              <TabsList className={`grid w-full ${isPasswordReset ? 'grid-cols-1' : 'grid-cols-3'}`}>
                 {!isPasswordReset && <TabsTrigger value="login">Login</TabsTrigger>}
                 {!isPasswordReset && <TabsTrigger value="register">Register</TabsTrigger>}
+                {!isPasswordReset && <TabsTrigger value="forgot">Forgot</TabsTrigger>}
                 {isPasswordReset && <TabsTrigger value="reset-password">Reset Password</TabsTrigger>}
               </TabsList>
               
@@ -463,6 +475,34 @@ const Auth = () => {
                 </form>
               </TabsContent>
 
+              <TabsContent value="forgot">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="forgot-email">Email</Label>
+                    <Input
+                      id="forgot-email"
+                      type="email"
+                      placeholder="example@gmail.com"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button type="button" variant="secondary" onClick={handleCheckAccount} disabled={checkingAccount}>
+                      {checkingAccount ? 'Checking...' : 'Check Account'}
+                    </Button>
+                    <Button type="button" onClick={handleSendReset} disabled={isLoading || !forgotEmail}>
+                      {isLoading ? 'Sending...' : 'Send Reset Email'}
+                    </Button>
+                  </div>
+                  {accountCheck === 'found' && (
+                    <p className="text-sm text-green-600">Account found for this email.</p>
+                  )}
+                  {accountCheck === 'not-found' && (
+                    <p className="text-sm text-red-600">No account found in profiles. You can still try sending the reset email.</p>
+                  )}
+                </div>
+              </TabsContent>
 
               <TabsContent value="reset-password">
                 <form onSubmit={handleUpdatePassword} className="space-y-4">
