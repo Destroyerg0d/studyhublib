@@ -22,6 +22,7 @@ import {
   Ticket,
   CreditCard as PaymentIcon,
 } from "lucide-react";
+import AdminNotificationsListener from "@/components/admin/AdminNotificationsListener";
 
 const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   const { profile, logout } = useAuth();
@@ -156,6 +157,8 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
           {children}
         </main>
       </div>
+
+      <AdminNotificationsListener />
 
       {/* Sidebar Overlay */}
       {sidebarOpen && (
