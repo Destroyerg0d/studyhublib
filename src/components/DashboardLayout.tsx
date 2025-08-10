@@ -20,6 +20,8 @@ import {
   GraduationCap,
 } from "lucide-react";
 
+import OnboardingTour from "@/components/OnboardingTour";
+
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   const { profile, logout } = useAuth();
   const location = useLocation();
@@ -87,6 +89,15 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                 <Link
                   key={item.path}
                   to={item.path}
+                  data-tour={
+                    item.path === "/dashboard/verification"
+                      ? "nav-verification"
+                      : item.path === "/dashboard/fees"
+                      ? "nav-fees"
+                      : item.path === "/dashboard/seats"
+                      ? "nav-seats"
+                      : undefined
+                  }
                   className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                     isActive(item.path, item.exact)
                       ? "bg-blue-100 text-blue-700"
@@ -164,6 +175,8 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
           {children}
         </main>
       </div>
+
+      <OnboardingTour />
 
       {/* Sidebar Overlay */}
       {sidebarOpen && (
