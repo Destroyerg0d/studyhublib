@@ -327,12 +327,13 @@ const Auth = () => {
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className={`grid w-full ${isPasswordReset ? 'grid-cols-1' : 'grid-cols-3'}`}>
-                {!isPasswordReset && <TabsTrigger value="login">Login</TabsTrigger>}
-                {!isPasswordReset && <TabsTrigger value="register">Register</TabsTrigger>}
-                {!isPasswordReset && <TabsTrigger value="forgot">Forgot</TabsTrigger>}
-                {isPasswordReset && <TabsTrigger value="reset-password">Reset Password</TabsTrigger>}
-              </TabsList>
+              {activeTab !== 'forgot' && (
+                <TabsList className={`grid w-full ${isPasswordReset ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                  {!isPasswordReset && <TabsTrigger value="login">Login</TabsTrigger>}
+                  {!isPasswordReset && <TabsTrigger value="register">Register</TabsTrigger>}
+                  {isPasswordReset && <TabsTrigger value="reset-password">Reset Password</TabsTrigger>}
+                </TabsList>
+              )}
               
               <TabsContent value="login">
                 <form onSubmit={handleLogin} className="space-y-4">
