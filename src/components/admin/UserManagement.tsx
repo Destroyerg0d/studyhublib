@@ -29,6 +29,7 @@ import {
   Shield,
   ShieldOff,
 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface User {
   id: string;
@@ -145,25 +146,8 @@ const UserManagement = () => {
           .eq('id', userId);
         
         if (error) throw error;
-      } else if (action === "Delete") {
-        // Check if trying to delete an admin
-        const userToDelete = users.find(u => u.id === userId);
-        if (userToDelete?.role === 'admin') {
-          toast({
-            title: "Error",
-            description: "Cannot delete admin users",
-            variant: "destructive",
-          });
-          return;
-        }
-        
-        // Delete user profile (this will cascade delete related data)
-        const { error } = await supabase
-          .from('profiles')
-          .delete()
-          .eq('id', userId);
-        
-        if (error) throw error;
+        // Delete action is handled via secure Edge Function from the delete button handler
+        // (admin-delete-user).
       } else if (action === "MakeAdmin") {
         const { error } = await supabase
           .from('profiles')
@@ -418,10 +402,29 @@ const UserManagement = () => {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => {
-                              if (window.confirm(`Are you sure you want to delete ${user.name}? This action cannot be undone.`)) {
-                                handleUserAction("Delete", user.id, user.name);
+                            onClick={async () => {
+                              // Check for active subscription and warn accordingly
+                              const { data: activeSubs } = await supabase
+                                .from('subscriptions')
+                                .select('id')
+                                .eq('user_id', user.id)
+                                .eq('status', 'active')
+                                .limit(1);
+                              const hasActive = !!(activeSubs && activeSubs.length > 0);
+                              const baseMsg = `Are you sure you want to delete ${user.name}? This action cannot be undone.`;
+                              const warn = hasActive ? `\n\nWARNING: This user has an active subscription. Deleting will immediately revoke access.` : '';
+                              if (!window.confirm(baseMsg + warn)) return;
+
+                              // Call secure Edge Function to perform full deletion (DB + auth user)
+                              const { data, error } = await supabase.functions.invoke('admin-delete-user', {
+                                body: { userId: user.id },
+                              });
+                              if (error || (data && (data as any).error)) {
+                                toast({ title: 'Error', description: 'Failed to delete user', variant: 'destructive' });
+                                return;
                               }
+                              toast({ title: 'Delete successful', description: `${user.name} has been deleted.` });
+                              fetchUsers();
                             }}
                             title="Delete user"
                           >
