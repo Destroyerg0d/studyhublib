@@ -4,6 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Table,
@@ -31,6 +33,14 @@ import {
 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
+interface SeatBooking {
+  seat_number: number;
+  time_slot: string;
+  start_date: string;
+  end_date: string;
+  status: string;
+}
+
 interface User {
   id: string;
   name: string;
@@ -40,11 +50,13 @@ interface User {
   role: string;
   created_at: string;
   subscription?: {
-    plan: { name: string; price: number };
+    plan: { name: string; price: number; duration_months?: number | null; duration_days?: number | null; type?: string | null } | null;
     status: string;
     amount_paid: number | null;
+    start_date?: string;
     end_date: string;
-  };
+  } | null;
+  seat_bookings?: SeatBooking[];
 }
 
 const UserManagement = () => {
@@ -53,6 +65,12 @@ const UserManagement = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [viewUser, setViewUser] = useState<User | null>(null);
+  const [editUser, setEditUser] = useState<User | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editVerified, setEditVerified] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
   const { toast } = useToast();
 
   const fetchUsers = async () => {
@@ -64,18 +82,30 @@ const UserManagement = () => {
           subscriptions (
             status,
             amount_paid,
+            start_date,
             end_date,
-            plans (
+            plan_id,
+            plan:plans (
               name,
-              price
+              price,
+              duration_months,
+              duration_days,
+              type
             )
+          ),
+          seat_bookings (
+            seat_number,
+            time_slot,
+            start_date,
+            end_date,
+            status
           )
         `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       
-      setUsers(data || []);
+      setUsers((data as unknown as User[]) || []);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
@@ -196,6 +226,27 @@ const UserManagement = () => {
     return user.subscription.status;
   };
 
+  const getCurrentSeat = (user: User) => {
+    const bookings = user.seat_bookings || [];
+    const today = new Date();
+    const active = bookings.find(b => {
+      const s = new Date(b.start_date);
+      const e = new Date(b.end_date);
+      return b.status === 'active' && s <= today && today <= e;
+    });
+    return active || null;
+  };
+
+  const getDaysLeft = (user: User) => {
+    const end = user.subscription?.end_date;
+    if (!end) return null;
+    const endDate = new Date(end);
+    const today = new Date();
+    const diffMs = endDate.getTime() - new Date(today.toDateString()).getTime();
+    const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    return days;
+  };
+
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
@@ -291,6 +342,7 @@ const UserManagement = () => {
                   <TableHead>Contact</TableHead>
                   <TableHead>Seat</TableHead>
                   <TableHead>Plan</TableHead>
+                  <TableHead>Days Left</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -321,7 +373,19 @@ const UserManagement = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <span className="text-gray-400">Managed via Seat Bookings</span>
+                      {(() => {
+                        const sb = getCurrentSeat(user);
+                        return sb ? (
+                          <div>
+                            <div className="text-sm">Seat {sb.seat_number} ({sb.time_slot})</div>
+                            <div className="text-xs text-gray-500">
+                              {new Date(sb.start_date).toLocaleDateString()} - {new Date(sb.end_date).toLocaleDateString()}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">No active seat</span>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>
                       {user.subscription ? (
@@ -334,6 +398,14 @@ const UserManagement = () => {
                       )}
                     </TableCell>
                     <TableCell>
+                      {(() => {
+                        const d = getDaysLeft(user);
+                        if (d === null) return <span className="text-gray-400">—</span>;
+                        if (d < 0) return <span className="text-red-600">Expired</span>;
+                        return <span className="text-gray-700">{d} days</span>;
+                      })()}
+                    </TableCell>
+                    <TableCell>
                       <Badge className={getStatusColor(user.subscription)}>
                         {user.subscription?.status || "No Subscription"}
                       </Badge>
@@ -343,14 +415,19 @@ const UserManagement = () => {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleUserAction("View", user.id, user.name)}
+                          onClick={() => setViewUser(user)}
                         >
                           <Eye className="h-3 w-3" />
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleUserAction("Edit", user.id, user.name)}
+                          onClick={() => {
+                            setEditUser(user);
+                            setEditName(user.name);
+                            setEditPhone(user.phone || "");
+                            setEditVerified(!!user.verified);
+                          }}
                         >
                           <Edit className="h-3 w-3" />
                         </Button>
