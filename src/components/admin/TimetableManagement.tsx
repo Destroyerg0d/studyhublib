@@ -126,25 +126,25 @@ const TimetableManagement = () => {
 
   const handleSaveSchedule = async () => {
     try {
-      // Delete existing slots for the current week
       const weekStart = new Date(selectedDate);
       weekStart.setDate(selectedDate.getDate() - selectedDate.getDay());
-      
+
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekStart.getDate() + 6);
 
-      await supabase
-        .from('timetable_slots')
-        .delete()
-        .gte('date', weekStart.toISOString().split('T')[0])
-        .lte('date', weekEnd.toISOString().split('T')[0]);
+      const slotsToInsert = timeSlots.map(({ id, ...slot }) => ({
+        ...slot,
+        description: slot.description || null,
+        active: !!slot.active,
+      }));
 
-      // Insert updated slots
-      const slotsToInsert = timeSlots.map(({ id, ...slot }) => slot);
-      
-      const { error } = await supabase
-        .from('timetable_slots')
-        .insert(slotsToInsert);
+      const { data, error } = await supabase.functions.invoke('admin-save-timetable', {
+        body: {
+          weekStart: weekStart.toISOString().split('T')[0],
+          weekEnd: weekEnd.toISOString().split('T')[0],
+          slots: slotsToInsert,
+        },
+      });
 
       if (error) throw error;
 
@@ -155,11 +155,11 @@ const TimetableManagement = () => {
 
       setIsEditing(false);
       fetchTimetableData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving schedule:', error);
       toast({
         title: "Error",
-        description: "Failed to save schedule",
+        description: error?.message || "Failed to save schedule",
         variant: "destructive",
       });
     }

@@ -20,3 +20,6 @@ verify_jwt = true
 
 [functions.admin-delete-user]
 verify_jwt = true
+
+[functions.admin-save-timetable]
+verify_jwt = true
