@@ -31,7 +31,7 @@ import {
   Shield,
   ShieldOff,
 } from "lucide-react";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface SeatBooking {
   seat_number: number;
@@ -75,71 +75,118 @@ const UserManagement = () => {
 
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase
+      // 1) Load profiles base
+      const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select(`
-          *,
-          subscriptions (
-            status,
-            amount_paid,
-            start_date,
-            end_date,
-            plan_id,
-            plan:plans (
-              name,
-              price,
-              duration_months,
-              duration_days,
-              type
-            )
-          )
-        `)
+        .select('id, name, email, phone, verified, role, created_at')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (profilesError) throw profilesError;
 
-      const usersBase = (data as unknown as User[]) || [];
+      const usersBase = (profilesData as any[]) || [];
+      const userIds = usersBase.map((u) => u.id).filter(Boolean);
 
-      // Fetch seat bookings separately to avoid missing relationship errors
-      const userIds = usersBase.map((u: any) => u.id).filter(Boolean);
-      if (userIds.length > 0) {
-        const { data: seatData, error: seatError } = await supabase
+      if (userIds.length === 0) {
+        setUsers([]);
+        return;
+      }
+
+      // 2) Fetch seat bookings and subscriptions in parallel
+      const [seatRes, subsRes] = await Promise.all([
+        supabase
           .from('seat_bookings')
           .select('user_id, seat_number, time_slot, start_date, end_date, status')
-          .in('user_id', userIds);
+          .in('user_id', userIds),
+        supabase
+          .from('subscriptions')
+          .select('id, user_id, status, amount_paid, start_date, end_date, plan_id')
+          .in('user_id', userIds)
+          .order('end_date', { ascending: false }),
+      ]);
 
-        if (seatError) {
-          console.error('Error fetching seat bookings:', seatError);
+      const seatData = seatRes.data || [];
+      const subsData = subsRes.data || [];
+
+      // 3) Fetch plans referenced by subscriptions
+      const planIds = Array.from(new Set(subsData.map((s: any) => s.plan_id).filter(Boolean)));
+      const { data: plansData } = planIds.length
+        ? await supabase.from('plans').select('id, name, price, duration_months, duration_days, type').in('id', planIds)
+        : { data: [] as any[] } as any;
+
+      // 4) Index helpers
+      const bookingsByUser: Record<string, SeatBooking[]> = {};
+      (seatData || []).forEach((sb: any) => {
+        const key = sb.user_id as string;
+        if (!bookingsByUser[key]) bookingsByUser[key] = [];
+        bookingsByUser[key].push({
+          seat_number: sb.seat_number,
+          time_slot: sb.time_slot,
+          start_date: sb.start_date,
+          end_date: sb.end_date,
+          status: sb.status,
+        });
+      });
+
+      const subsByUser: Record<string, any[]> = {};
+      (subsData || []).forEach((s: any) => {
+        const key = s.user_id as string;
+        if (!subsByUser[key]) subsByUser[key] = [];
+        subsByUser[key].push(s);
+      });
+
+      const planById: Record<string, any> = {};
+      (plansData || []).forEach((p: any) => {
+        planById[p.id] = p;
+      });
+
+      // 5) Merge into final users list with up-to-date subscription info
+      const merged: User[] = usersBase.map((u: any) => {
+        const subs = (subsByUser[u.id] || []) as any[];
+        let chosen: any | null = null;
+        if (subs.length > 0) {
+          const active = subs.filter((s) => s.status === 'active');
+          const sortByEnd = (a: any, b: any) => new Date(b.end_date).getTime() - new Date(a.end_date).getTime();
+          chosen = (active.length ? active.sort(sortByEnd)[0] : subs.sort(sortByEnd)[0]) || null;
         }
 
-        const bookingsByUser: Record<string, SeatBooking[]> = {};
-        (seatData || []).forEach((sb: any) => {
-          const key = sb.user_id as string;
-          if (!bookingsByUser[key]) bookingsByUser[key] = [];
-          bookingsByUser[key].push({
-            seat_number: sb.seat_number,
-            time_slot: sb.time_slot,
-            start_date: sb.start_date,
-            end_date: sb.end_date,
-            status: sb.status,
-          });
-        });
+        const plan = chosen?.plan_id ? planById[chosen.plan_id] : null;
 
-        const merged = usersBase.map((u: any) => ({
-          ...u,
+        return {
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          phone: u.phone,
+          verified: u.verified,
+          role: u.role,
+          created_at: u.created_at,
+          subscription: chosen
+            ? {
+                plan: plan
+                  ? {
+                      name: plan.name,
+                      price: Number(plan.price),
+                      duration_months: plan.duration_months,
+                      duration_days: plan.duration_days,
+                      type: plan.type,
+                    }
+                  : null,
+                status: chosen.status,
+                amount_paid: chosen.amount_paid ? Number(chosen.amount_paid) : null,
+                start_date: chosen.start_date,
+                end_date: chosen.end_date,
+              }
+            : null,
           seat_bookings: bookingsByUser[u.id] || [],
-        }));
+        } as User;
+      });
 
-        setUsers(merged as User[]);
-      } else {
-        setUsers(usersBase);
-      }
+      setUsers(merged);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
-        title: "Error",
-        description: "Failed to fetch users",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to fetch users',
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -419,6 +466,7 @@ const UserManagement = () => {
                       {user.subscription ? (
                         <div>
                           <div className="text-sm">{user.subscription.plan?.name || "Unknown Plan"}</div>
+                          <div className="text-xs text-gray-500">Type: {user.subscription.plan?.type || '—'}</div>
                           <div className="text-xs text-gray-500">₹{user.subscription.amount_paid || 0}</div>
                         </div>
                       ) : (
@@ -552,6 +600,98 @@ const UserManagement = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* View User Dialog */}
+      <Dialog open={!!viewUser} onOpenChange={(open) => { if (!open) setViewUser(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>User details</DialogTitle>
+            <DialogDescription>Overview of profile, subscription and seat</DialogDescription>
+          </DialogHeader>
+          {viewUser && (
+            <div className="space-y-4">
+              <div>
+                <div className="font-semibold">{viewUser.name}</div>
+                <div className="text-sm text-gray-500">{viewUser.email}</div>
+                <div className="text-sm text-gray-500">Phone: {viewUser.phone || 'N/A'}</div>
+                <div className="text-sm text-gray-500">Role: {viewUser.role}</div>
+                <div className="text-sm text-gray-500">Verified: {viewUser.verified ? 'Yes' : 'No'}</div>
+              </div>
+              <div>
+                <div className="font-semibold">Subscription</div>
+                {viewUser.subscription ? (
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <div>Plan: {viewUser.subscription.plan?.name} ({viewUser.subscription.plan?.type || '—'})</div>
+                    <div>Status: {viewUser.subscription.status}</div>
+                    <div>Amount: ₹{viewUser.subscription.amount_paid || 0}</div>
+                    <div>Period: {new Date(viewUser.subscription.start_date || viewUser.created_at).toLocaleDateString()} - {new Date(viewUser.subscription.end_date).toLocaleDateString()}</div>
+                    <div>Days left: {(() => { const d = getDaysLeft(viewUser); return d === null ? '—' : d < 0 ? 'Expired' : `${d} days`; })()}</div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-500">No subscription</div>
+                )}
+              </div>
+              <div>
+                <div className="font-semibold">Seat</div>
+                {(() => { const sb: any = getCurrentSeat(viewUser); return sb ? (
+                  <div className="text-sm text-gray-600">Seat {sb.seat_number} ({sb.time_slot}) • {new Date(sb.start_date).toLocaleDateString()} - {new Date(sb.end_date).toLocaleDateString()}</div>
+                ) : (
+                  <div className="text-sm text-gray-500">No active seat</div>
+                ); })()}
+              </div>
+          </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Dialog */}
+      <Dialog open={!!editUser} onOpenChange={(open) => { if (!open) setEditUser(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit user</DialogTitle>
+            <DialogDescription>Update basic profile fields</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Name</Label>
+              <Input id="name" value={editName} onChange={(e) => setEditName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone</Label>
+              <Input id="phone" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Switch id="verified" checked={editVerified} onCheckedChange={setEditVerified} />
+              <Label htmlFor="verified">Verified</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditUser(null)}>Cancel</Button>
+            <Button
+              onClick={async () => {
+                if (!editUser) return;
+                try {
+                  setSavingEdit(true);
+                  const { error } = await supabase
+                    .from('profiles')
+                    .update({ name: editName, phone: editPhone, verified: editVerified })
+                    .eq('id', editUser.id);
+                  if (error) throw error;
+                  toast({ title: 'Saved', description: 'Profile updated successfully.' });
+                  setEditUser(null);
+                  fetchUsers();
+                } catch (e) {
+                  console.error(e);
+                  toast({ title: 'Error', description: 'Failed to update profile', variant: 'destructive' });
+                } finally {
+                  setSavingEdit(false);
+                }
+              }}
+              disabled={savingEdit}
+            >{savingEdit ? 'Saving...' : 'Save changes'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
