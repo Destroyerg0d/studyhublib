@@ -92,20 +92,48 @@ const UserManagement = () => {
               duration_days,
               type
             )
-          ),
-          seat_bookings (
-            seat_number,
-            time_slot,
-            start_date,
-            end_date,
-            status
           )
         `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      
-      setUsers((data as unknown as User[]) || []);
+
+      const usersBase = (data as unknown as User[]) || [];
+
+      // Fetch seat bookings separately to avoid missing relationship errors
+      const userIds = usersBase.map((u: any) => u.id).filter(Boolean);
+      if (userIds.length > 0) {
+        const { data: seatData, error: seatError } = await supabase
+          .from('seat_bookings')
+          .select('user_id, seat_number, time_slot, start_date, end_date, status')
+          .in('user_id', userIds);
+
+        if (seatError) {
+          console.error('Error fetching seat bookings:', seatError);
+        }
+
+        const bookingsByUser: Record<string, SeatBooking[]> = {};
+        (seatData || []).forEach((sb: any) => {
+          const key = sb.user_id as string;
+          if (!bookingsByUser[key]) bookingsByUser[key] = [];
+          bookingsByUser[key].push({
+            seat_number: sb.seat_number,
+            time_slot: sb.time_slot,
+            start_date: sb.start_date,
+            end_date: sb.end_date,
+            status: sb.status,
+          });
+        });
+
+        const merged = usersBase.map((u: any) => ({
+          ...u,
+          seat_bookings: bookingsByUser[u.id] || [],
+        }));
+
+        setUsers(merged as User[]);
+      } else {
+        setUsers(usersBase);
+      }
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
