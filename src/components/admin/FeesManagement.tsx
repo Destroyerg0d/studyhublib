@@ -30,6 +30,7 @@ import {
 interface Payment {
   id: string;
   user_id: string;
+  plan_id?: string | null;
   amount: number;
   status: string;
   payment_method: string | null;
@@ -48,50 +49,97 @@ interface Payment {
 
 const FeesManagement = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState("all");
+  const [selectedFilter, setSelectedFilter] = useState("completed");
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   const fetchPayments = async () => {
     try {
-      const { data, error } = await supabase
+      // 1) Load completed online payments
+      const { data: paymentsData, error: paymentsError } = await supabase
         .from('payments')
-        .select(`
-          *,
-          plans (
-            name,
-            price
-          )
-        `)
+        .select('*')
+        .eq('status', 'completed')
         .order('created_at', { ascending: false });
 
-      // Fetch user profiles separately
-      const userIds = data?.map(payment => payment.user_id) || [];
-      const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('id, name, email')
-        .in('id', userIds);
+      if (paymentsError) throw paymentsError;
 
-      if (error) throw error;
-      
-      // Transform data to match interface
-      const transformedData = data?.map(payment => {
-        const userProfile = profilesData?.find(profile => profile.id === payment.user_id);
+      // 2) Load approved manual verifications
+      const { data: verifData, error: verifError } = await supabase
+        .from('payment_verifications' as any)
+        .select('*')
+        .eq('status', 'approved')
+        .order('verified_at', { ascending: false });
+
+      if (verifError) throw verifError;
+
+      const paymentsList = paymentsData ?? [];
+      const verifList = verifData ?? [];
+
+      // 3) Collect user and plan ids
+      const userIds = Array.from(new Set([
+        ...paymentsList.map((p: any) => p.user_id),
+        ...verifList.map((v: any) => v.user_id),
+      ].filter(Boolean)));
+
+      const planIds = Array.from(new Set([
+        ...paymentsList.map((p: any) => p.plan_id),
+        ...verifList.map((v: any) => v.plan_id),
+      ].filter(Boolean)));
+
+      // 4) Fetch profiles and plans in parallel (guard against empty arrays)
+      const [{ data: profilesData }, { data: plansData }] = await Promise.all([
+        userIds.length
+          ? supabase.from('profiles').select('id, name, email').in('id', userIds)
+          : Promise.resolve({ data: [] as any[] } as any),
+        planIds.length
+          ? supabase.from('plans').select('id, name, price').in('id', planIds)
+          : Promise.resolve({ data: [] as any[] } as any),
+      ]);
+
+      // 5) Enrich completed online payments
+      const enrichedPayments = paymentsList.map((payment: any) => {
+        const userProfile = (profilesData as any[])?.find((p: any) => p.id === payment.user_id);
+        const plan = (plansData as any[])?.find((pl: any) => pl.id === payment.plan_id);
         return {
           ...payment,
-          plan: payment.plans,
-          user: userProfile
-        };
-      }) || [];
-      
-      setPayments(transformedData);
+          plan: plan ? { name: plan.name, price: Number(plan.price) } : undefined,
+          user: userProfile ? { name: userProfile.name, email: userProfile.email } : undefined,
+        } as Payment;
+      });
+
+      // 6) Convert approved verifications to Payment-like rows
+      const approvedAsPayments: Payment[] = verifList.map((v: any) => {
+        const userProfile = (profilesData as any[])?.find((p: any) => p.id === v.user_id);
+        const plan = (plansData as any[])?.find((pl: any) => pl.id === v.plan_id);
+        return {
+          id: v.id,
+          user_id: v.user_id,
+          plan_id: v.plan_id,
+          amount: Math.round(Number(v.amount) * 100), // convert to minor units
+          status: 'completed',
+          payment_method: v.payment_method ?? 'manual',
+          razorpay_payment_id: null,
+          created_at: v.submitted_at,
+          paid_at: v.verified_at ?? v.submitted_at,
+          plan: plan ? { name: plan.name, price: Number(plan.price) } : undefined,
+          user: userProfile ? { name: userProfile.name, email: userProfile.email } : undefined,
+        } as Payment;
+      });
+
+      // 7) Merge and sort by latest paid/created date
+      const merged = [...enrichedPayments, ...approvedAsPayments].sort(
+        (a, b) => new Date(b.paid_at || b.created_at).getTime() - new Date(a.paid_at || a.created_at).getTime()
+      );
+
+      setPayments(merged);
     } catch (error) {
       console.error('Error fetching payments:', error);
       toast({
-        title: "Error",
-        description: "Failed to fetch payments",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to fetch payments',
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
