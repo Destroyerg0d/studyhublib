@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -879,20 +879,20 @@ export type Database = {
       }
       get_user_seat_booking: {
         Args: {
-          _user_id: string
           _time_slot: Database["public"]["Enums"]["time_slot_type"]
+          _user_id: string
         }
         Returns: {
           booking_id: string
+          end_date: string
           seat_number: number
           start_date: string
-          end_date: string
         }[]
       }
       has_role: {
         Args: {
-          _user_id: string
           _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
         }
         Returns: boolean
       }
@@ -902,11 +902,11 @@ export type Database = {
       }
       is_seat_available: {
         Args: {
-          _seat_number: number
-          _time_slot: Database["public"]["Enums"]["time_slot_type"]
-          _start_date: string
           _end_date: string
           _exclude_booking_id?: string
+          _seat_number: number
+          _start_date: string
+          _time_slot: Database["public"]["Enums"]["time_slot_type"]
         }
         Returns: boolean
       }
@@ -917,39 +917,39 @@ export type Database = {
       submit_verification: {
         Args:
           | {
-              _name: string
-              _phone: string
-              _dob: string
+              _aadhar_back_url: string
+              _aadhar_front_url: string
               _address: string
+              _dob: string
               _emergency_name: string
               _emergency_phone: string
               _emergency_relation: string
-              _aadhar_front_url: string
-              _aadhar_back_url: string
+              _name: string
+              _phone: string
             }
           | {
-              p_user_id: string
-              p_plan_id: string
               p_amount: number
-              p_payment_proof_url: string
               p_payment_method?: string
+              p_payment_proof_url: string
+              p_plan_id: string
               p_transaction_reference?: string
+              p_user_id: string
             }
         Returns: string
       }
       validate_coupon: {
         Args: {
-          _coupon_code: string
-          _user_id: string
-          _order_type: string
           _amount: number
+          _coupon_code: string
+          _order_type: string
+          _user_id: string
         }
         Returns: {
-          valid: boolean
           coupon_id: string
           discount_amount: number
-          final_amount: number
           error_message: string
+          final_amount: number
+          valid: boolean
         }[]
       }
     }
