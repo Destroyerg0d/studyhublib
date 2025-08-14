@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import QRPayment from "./QRPayment";
+import CouponInput from "../common/CouponInput";
 import {
   CreditCard,
   Calendar,
@@ -25,6 +26,8 @@ const FeesPayment = () => {
   const [plans, setPlans] = useState([]);
   const [payments, setPayments] = useState([]);
   const [currentSubscription, setCurrentSubscription] = useState(null);
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [finalAmount, setFinalAmount] = useState(0);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -171,6 +174,14 @@ const FeesPayment = () => {
   const handleDurationSelect = (planId: string) => {
     setSelectedDuration(planId);
     setSelectedPlan(planId);
+    setAppliedCoupon(null);
+    setFinalAmount(0);
+  };
+
+  // Handle coupon application
+  const handleCouponApplied = (couponData: any) => {
+    setAppliedCoupon(couponData);
+    setFinalAmount(couponData.finalAmount);
   };
 
   const getStatusColor = (status: string) => {
@@ -398,14 +409,57 @@ const FeesPayment = () => {
                   Complete your payment to activate your {plans.find(p => p.id === selectedPlan)?.name} plan
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-6">
+                {/* Coupon Input Section */}
+                <div className="border rounded-lg p-4 bg-gray-50">
+                  <h4 className="text-lg font-semibold mb-3">Apply Coupon Code</h4>
+                  <CouponInput
+                    amount={plans.find(p => p.id === selectedPlan)?.price || 0}
+                    orderType="subscriptions"
+                    onCouponApplied={handleCouponApplied}
+                  />
+                </div>
+
+                {/* Payment Summary */}
+                <div className="border rounded-lg p-4">
+                  <h4 className="text-lg font-semibold mb-3">Payment Summary</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span>Plan Amount:</span>
+                      <span>₹{plans.find(p => p.id === selectedPlan)?.price}</span>
+                    </div>
+                    {appliedCoupon && (
+                      <>
+                        <div className="flex justify-between text-green-600">
+                          <span>Discount ({appliedCoupon.code}):</span>
+                          <span>-₹{appliedCoupon.discountAmount}</span>
+                        </div>
+                        <hr />
+                        <div className="flex justify-between font-bold text-lg">
+                          <span>Final Amount:</span>
+                          <span>₹{finalAmount}</span>
+                        </div>
+                      </>
+                    )}
+                    {!appliedCoupon && (
+                      <div className="flex justify-between font-bold text-lg">
+                        <span>Total Amount:</span>
+                        <span>₹{plans.find(p => p.id === selectedPlan)?.price}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 <div className="text-center mb-6">
                   <h3 className="text-lg font-semibold text-primary mb-2">QR Code Payment</h3>
                   <p className="text-muted-foreground">Pay via UPI by scanning the QR code below</p>
                 </div>
 
                 <QRPayment 
-                  plan={plans.find(p => p.id === selectedPlan)}
+                  plan={{
+                    ...plans.find(p => p.id === selectedPlan),
+                    price: appliedCoupon ? finalAmount : plans.find(p => p.id === selectedPlan)?.price
+                  }}
                   onSubmitted={() => {
                     toast({
                       title: "Payment verification submitted",

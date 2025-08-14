@@ -63,7 +63,9 @@ serve(async (req) => {
     }
 
     // Admin client to bypass RLS for write operations
-    const supabaseAdmin = createClient(supabaseUrl, serviceKey);
+    const supabaseAdmin = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false }
+    });
 
     // Delete existing slots in range
     const { error: deleteError } = await supabaseAdmin
