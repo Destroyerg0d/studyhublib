@@ -64,8 +64,16 @@ serve(async (req) => {
 
     // Admin client to bypass RLS for write operations
     const supabaseAdmin = createClient(supabaseUrl, serviceKey, {
-      auth: { persistSession: false }
+      auth: { persistSession: false },
+      global: {
+        headers: {
+          Authorization: `Bearer ${serviceKey}`
+        }
+      }
     });
+
+    console.log(`Processing timetable save for week ${weekStart} to ${weekEnd}`);
+    console.log(`Number of slots to process: ${slots.length}`);
 
     // Delete existing slots in range
     const { error: deleteError } = await supabaseAdmin
@@ -82,6 +90,8 @@ serve(async (req) => {
       );
     }
 
+    console.log("Successfully deleted existing slots");
+
     // Sanitize and insert new slots
     const sanitized = slots.map((s: any) => ({
       name: String(s.name ?? "").slice(0, 255),
@@ -93,6 +103,8 @@ serve(async (req) => {
       plan_type: String(s.plan_type ?? "full_day"),
       date: String(s.date ?? weekStart),
     }));
+
+    console.log("Sanitized slots:", JSON.stringify(sanitized, null, 2));
 
     if (sanitized.length > 0) {
       const { error: insertError } = await supabaseAdmin
@@ -106,6 +118,7 @@ serve(async (req) => {
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+      console.log(`Successfully inserted ${sanitized.length} slots`);
     }
 
     return new Response(
