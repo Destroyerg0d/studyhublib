@@ -175,13 +175,19 @@ const FeesPayment = () => {
     setSelectedDuration(planId);
     setSelectedPlan(planId);
     setAppliedCoupon(null);
-    setFinalAmount(0);
+    const planPrice = plans.find(p => p.id === planId)?.price || 0;
+    setFinalAmount(planPrice);
   };
 
   // Handle coupon application
   const handleCouponApplied = (couponData: any) => {
     setAppliedCoupon(couponData);
-    setFinalAmount(couponData.finalAmount);
+    if (couponData) {
+      setFinalAmount(couponData.final_amount);
+    } else {
+      const planPrice = plans.find(p => p.id === selectedPlan)?.price || 0;
+      setFinalAmount(planPrice);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -428,16 +434,16 @@ const FeesPayment = () => {
                       <span>Plan Amount:</span>
                       <span>₹{plans.find(p => p.id === selectedPlan)?.price}</span>
                     </div>
-                    {appliedCoupon && (
+                     {appliedCoupon && (
                       <>
                         <div className="flex justify-between text-green-600">
                           <span>Discount ({appliedCoupon.code}):</span>
-                          <span>-₹{appliedCoupon.discountAmount}</span>
+                          <span>-₹{appliedCoupon.discount_amount}</span>
                         </div>
                         <hr />
                         <div className="flex justify-between font-bold text-lg">
                           <span>Final Amount:</span>
-                          <span>₹{finalAmount}</span>
+                          <span>₹{appliedCoupon.final_amount}</span>
                         </div>
                       </>
                     )}
@@ -455,10 +461,10 @@ const FeesPayment = () => {
                   <p className="text-muted-foreground">Pay via UPI by scanning the QR code below</p>
                 </div>
 
-                <QRPayment 
+                 <QRPayment 
                   plan={{
                     ...plans.find(p => p.id === selectedPlan),
-                    price: appliedCoupon ? finalAmount : plans.find(p => p.id === selectedPlan)?.price
+                    price: appliedCoupon ? appliedCoupon.final_amount : plans.find(p => p.id === selectedPlan)?.price
                   }}
                   onSubmitted={() => {
                     toast({
