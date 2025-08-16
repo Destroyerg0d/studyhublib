@@ -153,14 +153,21 @@ const FeesPayment = () => {
   // Get available durations for selected plan type
   const getAvailableDurations = (planType: string) => {
     const plansForType = plansByType[planType] || [];
-    return plansForType.map(plan => ({
-      value: plan.id,
-      label: `${plan.duration_months} ${plan.duration_months === 1 ? 'Month' : 'Months'}`,
-      price: plan.price,
-      originalPrice: plan.duration_months * (plansForType.find(p => p.duration_months === 1)?.price || 0),
-      savings: plan.duration_months > 1 ? (plan.duration_months * (plansForType.find(p => p.duration_months === 1)?.price || 0)) - plan.price : 0,
-      duration: plan.duration_months
-    })).sort((a, b) => a.duration - b.duration);
+    const monthlyPrice = plansForType.find(p => p.duration_months === 1)?.price || 0;
+    
+    return plansForType.map(plan => {
+      const originalPrice = plan.duration_months * monthlyPrice;
+      const savings = plan.duration_months > 1 ? originalPrice - plan.price : 0;
+      
+      return {
+        value: plan.id,
+        label: `${plan.duration_months} ${plan.duration_months === 1 ? 'Month' : 'Months'}`,
+        price: plan.price,
+        originalPrice,
+        savings,
+        duration: plan.duration_months
+      };
+    }).sort((a, b) => a.duration - b.duration);
   };
 
   // Handle plan type selection
