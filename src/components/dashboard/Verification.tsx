@@ -45,14 +45,7 @@ const Verification = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log('=== VERIFICATION SUBMISSION DEBUG START ===');
-    console.log('Current user session:', user);
-    console.log('Profile object:', profile);
-    console.log('User authenticated:', !!user);
-    console.log('Profile ID:', profile?.id);
-    
     if (!profile?.id) {
-      console.error('No profile found:', profile);
       toast({
         title: "Error",
         description: "User not found. Please try logging in again.",
@@ -62,7 +55,6 @@ const Verification = () => {
     }
 
     if (!aadharFront || !aadharBack) {
-      console.error('Missing files:', { aadharFront, aadharBack });
       toast({
         title: "Error", 
         description: "Please upload both sides of your Aadhar card.",
@@ -76,45 +68,32 @@ const Verification = () => {
     try {
       const formData = new FormData(e.target as HTMLFormElement);
       
-      console.log('Starting verification submission for user:', profile.id);
-      console.log('Profile data:', profile);
-      console.log('Form data:', {
-        fullname: formData.get('fullname'),
-        phone: formData.get('phone'),
-        dob: formData.get('dob'),
-        address: formData.get('address'),
-        emergencyName: formData.get('emergency-name'),
-        emergencyPhone: formData.get('emergency-phone'),
-        relationship: formData.get('relationship')
-      });
       
       // Upload Aadhar front
       const frontFileName = `${profile.id}/aadhar_front_${Date.now()}.${aadharFront.name.split('.').pop()}`;
-      console.log('Uploading front file:', frontFileName);
+      
       
       const { data: frontUpload, error: frontError } = await supabase.storage
         .from('verification-docs')
         .upload(frontFileName, aadharFront);
 
       if (frontError) {
-        console.error('Front upload error:', frontError);
         throw frontError;
       }
-      console.log('Front upload successful:', frontUpload);
+      
 
       // Upload Aadhar back
       const backFileName = `${profile.id}/aadhar_back_${Date.now()}.${aadharBack.name.split('.').pop()}`;
-      console.log('Uploading back file:', backFileName);
+      
       
       const { data: backUpload, error: backError } = await supabase.storage
         .from('verification-docs')
         .upload(backFileName, aadharBack);
 
       if (backError) {
-        console.error('Back upload error:', backError);
         throw backError;
       }
-      console.log('Back upload successful:', backUpload);
+      
 
       // Get public URLs
       const { data: frontUrl } = supabase.storage
@@ -125,7 +104,7 @@ const Verification = () => {
         .from('verification-docs')
         .getPublicUrl(backUpload.path);
 
-      console.log('Got URLs:', { front: frontUrl.publicUrl, back: backUrl.publicUrl });
+      
 
       // Update profile with form data
       const profileUpdateData = {
@@ -138,7 +117,7 @@ const Verification = () => {
         emergency_contact_relation: formData.get('relationship') as string,
       };
       
-      console.log('Updating profile with:', profileUpdateData);
+      
       
       const { error: profileError } = await supabase
         .from('profiles')
@@ -146,10 +125,9 @@ const Verification = () => {
         .eq('id', profile.id);
 
       if (profileError) {
-        console.error('Profile update error:', profileError);
         throw profileError;
       }
-      console.log('Profile updated successfully');
+      
 
       // Create verification request
       const verificationData = {
@@ -159,7 +137,7 @@ const Verification = () => {
         status: 'pending'
       };
       
-      console.log('Creating verification request with:', verificationData);
+      
       
       const { data: verificationRequest, error: verificationError } = await supabase
         .from('verification_requests')
@@ -168,13 +146,6 @@ const Verification = () => {
         .single();
 
       if (verificationError) {
-        console.error('Verification request error:', verificationError);
-        console.log('Error details:', {
-          message: verificationError.message,
-          details: verificationError.details,
-          hint: verificationError.hint,
-          code: verificationError.code
-        });
         
         // Check if it's an RLS policy error
         if (verificationError.code === '42501' || verificationError.message?.includes('policy')) {
@@ -184,7 +155,7 @@ const Verification = () => {
         throw verificationError;
       }
       
-      console.log('Verification request created successfully:', verificationRequest);
+      
 
       toast({
         title: "Verification submitted!",
@@ -200,14 +171,6 @@ const Verification = () => {
       form.reset();
       
     } catch (error: any) {
-      console.error('=== VERIFICATION SUBMISSION ERROR ===');
-      console.error('Full error object:', error);
-      console.error('Error message:', error.message);
-      console.error('Error code:', error.code);
-      console.error('Error details:', error.details);
-      console.error('Error hint:', error.hint);
-      console.error('Current user context:', user);
-      console.error('Current profile context:', profile);
       
       // Provide more specific error messages
       let errorMessage = "Failed to submit verification. Please try again.";

@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { maskSensitiveData } from "@/utils/security";
+import { SecurityAlert } from "@/components/common/SecurityAlert";
 import {
   Dialog,
   DialogContent,
@@ -269,24 +271,33 @@ const VerificationManagement = () => {
 
       {/* Urgent Actions */}
       {pendingCount > 0 && (
-        <Card className="border-yellow-200 bg-yellow-50">
-          <CardContent className="flex items-center p-4">
-            <AlertTriangle className="h-5 w-5 text-yellow-600 mr-3" />
-            <div className="flex-1">
-              <p className="text-sm text-yellow-800">
-                <strong>Urgent:</strong> {pendingCount} verification request{pendingCount > 1 ? 's' : ''} pending review.
-              </p>
-            </div>
-            <Button 
-              size="sm" 
-              variant="outline" 
-              className="border-yellow-600 text-yellow-600 hover:bg-yellow-100"
-              onClick={handleReviewNow}
-            >
-              Review Now
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="space-y-4">
+          <Card className="border-yellow-200 bg-yellow-50">
+            <CardContent className="flex items-center p-4">
+              <AlertTriangle className="h-5 w-5 text-yellow-600 mr-3" />
+              <div className="flex-1">
+                <p className="text-sm text-yellow-800">
+                  <strong>Urgent:</strong> {pendingCount} verification request{pendingCount > 1 ? 's' : ''} pending review.
+                </p>
+              </div>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="border-yellow-600 text-yellow-600 hover:bg-yellow-100"
+                onClick={handleReviewNow}
+              >
+                Review Now
+              </Button>
+            </CardContent>
+          </Card>
+          
+          {/* Security Notice */}
+          <SecurityAlert
+            type="info"
+            title="Security Notice"
+            message="Sensitive personal data is masked for security. Full details are only visible to authorized personnel during verification review."
+          />
+        </div>
       )}
 
       <Card ref={tableRef}>
@@ -338,12 +349,12 @@ const VerificationManagement = () => {
                         <div className="text-sm text-gray-500">{request.user?.email || "No email"}</div>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <div className="text-sm">{request.user?.phone || "No phone"}</div>
-                      <div className="text-xs text-gray-500">
-                        Emergency: {request.user?.emergency_contact_name || "Not provided"}
-                      </div>
-                    </TableCell>
+                     <TableCell>
+                       <div className="text-sm">{request.user?.phone ? maskSensitiveData(request.user.phone, 'phone') : "No phone"}</div>
+                       <div className="text-xs text-gray-500">
+                         Emergency: {request.user?.emergency_contact_name || "Not provided"}
+                       </div>
+                     </TableCell>
                     <TableCell>
                       <div className="text-sm">
                         {new Date(request.created_at).toLocaleDateString()}
@@ -388,10 +399,10 @@ const VerificationManagement = () => {
                                     <span className="text-gray-600">Email:</span>
                                     <p>{request.user?.email || "Not provided"}</p>
                                   </div>
-                                  <div>
-                                    <span className="text-gray-600">Phone:</span>
-                                    <p>{request.user?.phone || "Not provided"}</p>
-                                  </div>
+                                   <div>
+                                     <span className="text-gray-600">Phone:</span>
+                                     <p>{request.user?.phone ? maskSensitiveData(request.user.phone, 'phone') : "Not provided"}</p>
+                                   </div>
                                   <div>
                                     <span className="text-gray-600">Status:</span>
                                     <Badge className={getStatusColor(request.status)}>
@@ -415,10 +426,10 @@ const VerificationManagement = () => {
                                     <span className="text-gray-600">Name:</span>
                                     <p>{request.user?.emergency_contact_name || "Not provided"}</p>
                                   </div>
-                                  <div>
-                                    <span className="text-gray-600">Phone:</span>
-                                    <p>{request.user?.emergency_contact_phone || "Not provided"}</p>
-                                  </div>
+                                   <div>
+                                     <span className="text-gray-600">Phone:</span>
+                                     <p>{request.user?.emergency_contact_phone ? maskSensitiveData(request.user.emergency_contact_phone, 'phone') : "Not provided"}</p>
+                                   </div>
                                   <div>
                                     <span className="text-gray-600">Relation:</span>
                                     <p>{request.user?.emergency_contact_relation || "Not provided"}</p>

@@ -43,7 +43,7 @@ const Auth = () => {
   // Redirect if already logged in
   useEffect(() => {
     if (user && profile) {
-      console.log('User already logged in, redirecting based on role:', profile.role);
+      
       if (profile.role === 'admin') {
         navigate('/admin');
       } else {
@@ -60,7 +60,7 @@ const Auth = () => {
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
 
-    console.log('Login form submitted with email:', email);
+    
 
     try {
       const result = await login(email, password);
@@ -121,7 +121,7 @@ const Auth = () => {
       return;
     }
 
-    console.log('Registration form submitted with email:', email);
+    
 
     try {
       const result = await register(email, password, name);
@@ -160,7 +160,7 @@ const Auth = () => {
     const formData = new FormData(e.currentTarget);
     const email = formData.get('email') as string;
 
-    console.log('Forgot password form submitted with email:', email);
+    
 
     try {
       const result = await resetPassword(email);
@@ -271,7 +271,7 @@ const Auth = () => {
       return;
     }
 
-    console.log('Updating password');
+    
 
     try {
       const { error } = await supabase.auth.updateUser({
