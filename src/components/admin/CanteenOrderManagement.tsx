@@ -3,10 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Clock, Bell, CheckCircle, XCircle, Utensils, User, Hash, Calendar, IndianRupee } from "lucide-react";
+import { Clock, Bell, CheckCircle, XCircle, Utensils, User, Hash, Calendar, IndianRupee, Eye, AlertTriangle } from "lucide-react";
 
 interface CanteenOrder {
   id: string;
@@ -25,6 +26,8 @@ interface CanteenOrder {
   special_instructions?: string;
   created_at: string;
   paid_at?: string;
+  razorpay_payment_id?: string;
+  razorpay_signature?: string;
   profiles?: {
     name: string;
     email: string;
@@ -36,6 +39,8 @@ const CanteenOrderManagement = () => {
   const [orders, setOrders] = useState<CanteenOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("all");
+  const [selectedOrder, setSelectedOrder] = useState<CanteenOrder | null>(null);
+  const [showPaymentProof, setShowPaymentProof] = useState(false);
 
   // Notification sound for new orders
   const playNotificationSound = () => {
@@ -128,8 +133,47 @@ const CanteenOrderManagement = () => {
     }
   };
 
+  const verifyQRPayment = async (orderId: string, approved: boolean) => {
+    try {
+      const updateData = {
+        payment_status: approved ? 'paid' : 'failed',
+        status: approved ? 'paid' : 'cancelled',
+        paid_at: approved ? new Date().toISOString() : null
+      };
+
+      const { error } = await supabase
+        .from('canteen_orders')
+        .update(updateData)
+        .eq('id', orderId);
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: approved ? "Payment Approved" : "Payment Rejected",
+        description: approved 
+          ? "Order payment has been verified and approved"
+          : "Order payment has been rejected",
+      });
+
+      fetchOrders();
+      setShowPaymentProof(false);
+      setSelectedOrder(null);
+    } catch (error: any) {
+      console.error('Error verifying payment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to verify payment",
+        variant: "destructive",
+      });
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
+      case 'payment_verification':
+        return 'bg-orange-100 text-orange-800';
       case 'paid':
         return 'bg-blue-100 text-blue-800';
       case 'preparing':
@@ -147,6 +191,8 @@ const CanteenOrderManagement = () => {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
+      case 'payment_verification':
+        return <AlertTriangle className="h-4 w-4" />;
       case 'paid':
         return <CheckCircle className="h-4 w-4" />;
       case 'preparing':
@@ -239,6 +285,7 @@ const CanteenOrderManagement = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Orders</SelectItem>
+            <SelectItem value="payment_verification">Payment Verification</SelectItem>
             <SelectItem value="paid">Paid</SelectItem>
             <SelectItem value="preparing">Preparing</SelectItem>
             <SelectItem value="ready">Ready</SelectItem>
@@ -273,9 +320,24 @@ const CanteenOrderManagement = () => {
                       <span className="font-mono">{order.order_number}</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <IndianRupee className="h-4 w-4" />
-                    <span className="font-semibold">₹{order.total_amount}</span>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <IndianRupee className="h-4 w-4" />
+                      <span className="font-semibold">₹{order.total_amount}</span>
+                    </div>
+                    {order.status === 'payment_verification' && order.razorpay_signature && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedOrder(order);
+                          setShowPaymentProof(true);
+                        }}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        View Proof
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardHeader>
@@ -326,6 +388,27 @@ const CanteenOrderManagement = () => {
                 )}
 
                 {/* Action Buttons */}
+                {order.status === 'payment_verification' && (
+                  <div className="flex gap-2 pt-3 border-t">
+                    <Button
+                      onClick={() => verifyQRPayment(order.id, true)}
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <CheckCircle className="h-4 w-4 mr-1" />
+                      Approve Payment
+                    </Button>
+                    <Button
+                      onClick={() => verifyQRPayment(order.id, false)}
+                      size="sm"
+                      variant="destructive"
+                    >
+                      <XCircle className="h-4 w-4 mr-1" />
+                      Reject Payment
+                    </Button>
+                  </div>
+                )}
+                
                 {order.status === 'paid' && (
                   <div className="flex gap-2 pt-3 border-t">
                     <div className="flex gap-2 flex-1">
@@ -375,6 +458,49 @@ const CanteenOrderManagement = () => {
           ))
         )}
       </div>
+
+      {/* Payment Proof Dialog */}
+      <Dialog open={showPaymentProof} onOpenChange={setShowPaymentProof}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Payment Proof - Order {selectedOrder?.order_number}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {selectedOrder?.razorpay_payment_id && (
+              <div>
+                <strong>Transaction ID:</strong> {selectedOrder.razorpay_payment_id}
+              </div>
+            )}
+            {selectedOrder?.razorpay_signature && (
+              <div className="space-y-2">
+                <strong>Payment Screenshot:</strong>
+                <img 
+                  src={selectedOrder.razorpay_signature} 
+                  alt="Payment Screenshot" 
+                  className="w-full rounded-lg border"
+                />
+              </div>
+            )}
+            <div className="flex gap-2 pt-4">
+              <Button
+                onClick={() => verifyQRPayment(selectedOrder?.id || '', true)}
+                className="flex-1 bg-green-600 hover:bg-green-700"
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Approve Payment
+              </Button>
+              <Button
+                onClick={() => verifyQRPayment(selectedOrder?.id || '', false)}
+                variant="destructive"
+                className="flex-1"
+              >
+                <XCircle className="h-4 w-4 mr-2" />
+                Reject Payment
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -2,9 +2,12 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useCanteenPayU } from "@/hooks/useCanteenPayU";
-import { Coffee, ShoppingCart, Plus, Minus, Utensils, Clock, Truck, Star, CreditCard } from "lucide-react";
+import CanteenQRPayment from "@/components/dashboard/CanteenQRPayment";
+import { Coffee, ShoppingCart, Plus, Minus, Utensils, Clock, Truck, Star, CreditCard, QrCode } from "lucide-react";
 
 interface MenuItem {
   id: string;
@@ -81,6 +84,9 @@ const Canteen = () => {
     return Object.values(cart).reduce((total, quantity) => total + quantity, 0);
   };
 
+  const [showQRPayment, setShowQRPayment] = useState(false);
+  const [specialInstructions, setSpecialInstructions] = useState("");
+
   const placeOrder = async () => {
     if (getTotalItems() === 0) {
       toast({
@@ -104,13 +110,19 @@ const Canteen = () => {
     await createOrder({
       items: cartItems,
       totalAmount: getTotalPrice(),
+      specialInstructions,
       onSuccess: () => {
         setCart({});
+        setSpecialInstructions("");
       },
       onError: (error) => {
         console.error('Order failed:', error);
       }
     });
+  };
+
+  const handleQRPayment = () => {
+    setShowQRPayment(true);
   };
 
   return (
@@ -139,9 +151,9 @@ const Canteen = () => {
       </div>
 
       {/* Cart Summary */}
-      {getTotalItems() > 0 && (
+      {getTotalItems() > 0 && !showQRPayment && (
         <Card className="bg-primary text-primary-foreground">
-          <CardContent className="p-4">
+          <CardContent className="p-6 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <ShoppingCart className="h-5 w-5" />
@@ -150,22 +162,70 @@ const Canteen = () => {
                   <p className="text-sm opacity-90">{getTotalItems()} items • ₹{getTotalPrice()}</p>
                 </div>
               </div>
+            </div>
+            
+            {/* Special Instructions */}
+            <div className="space-y-2">
+              <Label htmlFor="instructions" className="text-primary-foreground">Special Instructions (Optional)</Label>
+              <Textarea
+                id="instructions"
+                placeholder="Any special requests for your order..."
+                value={specialInstructions}
+                onChange={(e) => setSpecialInstructions(e.target.value)}
+                className="bg-white/10 border-white/20 text-primary-foreground placeholder:text-primary-foreground/70"
+              />
+            </div>
+
+            {/* Payment Options */}
+            <div className="flex gap-2">
               <Button 
                 onClick={placeOrder} 
                 variant="secondary"
-                className="font-semibold"
+                className="font-semibold flex-1"
                 disabled={isLoading}
               >
                 <CreditCard className="h-4 w-4 mr-2" />
-                {isLoading ? "Processing..." : "Pay & Order"}
+                {isLoading ? "Processing..." : "Online Payment"}
+              </Button>
+              <Button 
+                onClick={handleQRPayment} 
+                variant="outline"
+                className="font-semibold flex-1 bg-white/10 border-white/20 text-primary-foreground hover:bg-white/20"
+              >
+                <QrCode className="h-4 w-4 mr-2" />
+                QR Payment
               </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
+      {/* QR Payment Section */}
+      {showQRPayment && getTotalItems() > 0 && (
+        <CanteenQRPayment
+          items={Object.entries(cart).map(([itemId, quantity]) => {
+            const item = menuItems.find(item => item.id === itemId);
+            return {
+              id: itemId,
+              name: item?.name || '',
+              price: item?.price || 0,
+              quantity
+            };
+          })}
+          totalAmount={getTotalPrice()}
+          specialInstructions={specialInstructions}
+          onBack={() => setShowQRPayment(false)}
+          onSuccess={() => {
+            setCart({});
+            setSpecialInstructions("");
+            setShowQRPayment(false);
+          }}
+        />
+      )}
+
       {/* Menu Categories */}
-      <div className="space-y-6">
+      {!showQRPayment && (
+        <div className="space-y-6">
         {categories.map(category => {
           const categoryItems = menuItems.filter(item => item.category === category);
           const categoryIcons = {
@@ -245,10 +305,12 @@ const Canteen = () => {
             </Card>
           );
         })}
-      </div>
+        </div>
+      )}
 
       {/* Service Information */}
-      <div className="grid md:grid-cols-2 gap-6">
+      {!showQRPayment && (
+        <div className="grid md:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-primary">
@@ -282,7 +344,8 @@ const Canteen = () => {
             </ul>
           </CardContent>
         </Card>
-      </div>
+        </div>
+      )}
     </div>
   );
 };
