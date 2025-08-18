@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          accessed_at: string | null
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          operation: string
+          table_name: string
+          user_id: string | null
+        }
+        Insert: {
+          accessed_at?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          operation: string
+          table_name: string
+          user_id?: string | null
+        }
+        Update: {
+          accessed_at?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          operation?: string
+          table_name?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       canteen_items: {
         Row: {
           available: boolean
@@ -889,6 +919,10 @@ export type Database = {
           start_date: string
         }[]
       }
+      get_verification_document_url: {
+        Args: { document_type: string; verification_id: string }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -909,6 +943,10 @@ export type Database = {
           _time_slot: Database["public"]["Enums"]["time_slot_type"]
         }
         Returns: boolean
+      }
+      mask_sensitive_data: {
+        Args: { data_type: string; original_value: string }
+        Returns: string
       }
       release_expired_seat_bookings: {
         Args: Record<PropertyKey, never>
