@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useCanteenPayU } from "@/hooks/useCanteenPayU";
 import CanteenQRPayment from "@/components/dashboard/CanteenQRPayment";
+import CouponInput from "@/components/common/CouponInput";
 import { Coffee, ShoppingCart, Plus, Minus, Utensils, Clock, Truck, Star, CreditCard, QrCode } from "lucide-react";
 
 interface MenuItem {
@@ -80,12 +81,22 @@ const Canteen = () => {
     }, 0);
   };
 
+  const getFinalPrice = () => {
+    return appliedCoupon ? appliedCoupon.final_amount : getTotalPrice();
+  };
+
   const getTotalItems = () => {
     return Object.values(cart).reduce((total, quantity) => total + quantity, 0);
   };
 
   const [showQRPayment, setShowQRPayment] = useState(false);
   const [specialInstructions, setSpecialInstructions] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string;
+    id: string;
+    discount_amount: number;
+    final_amount: number;
+  } | null>(null);
 
   const placeOrder = async () => {
     if (getTotalItems() === 0) {
@@ -109,11 +120,15 @@ const Canteen = () => {
 
     await createOrder({
       items: cartItems,
-      totalAmount: getTotalPrice(),
+      totalAmount: getFinalPrice(),
+      originalAmount: appliedCoupon ? getTotalPrice() : undefined,
+      discountAmount: appliedCoupon ? appliedCoupon.discount_amount : undefined,
+      couponId: appliedCoupon ? appliedCoupon.id : undefined,
       specialInstructions,
       onSuccess: () => {
         setCart({});
         setSpecialInstructions("");
+        setAppliedCoupon(null);
       },
       onError: (error) => {
         console.error('Order failed:', error);
@@ -159,7 +174,7 @@ const Canteen = () => {
                 <ShoppingCart className="h-5 w-5" />
                 <div>
                   <h3 className="font-semibold">Your Cart</h3>
-                  <p className="text-sm opacity-90">{getTotalItems()} items • ₹{getTotalPrice()}</p>
+                  <p className="text-sm opacity-90">{getTotalItems()} items • ₹{getFinalPrice()}</p>
                 </div>
               </div>
             </div>
@@ -173,6 +188,15 @@ const Canteen = () => {
                 value={specialInstructions}
                 onChange={(e) => setSpecialInstructions(e.target.value)}
                 className="bg-white/10 border-white/20 text-primary-foreground placeholder:text-primary-foreground/70"
+              />
+            </div>
+
+            {/* Coupon Section */}
+            <div className="bg-white/10 rounded-lg p-4">
+              <CouponInput
+                amount={getTotalPrice()}
+                orderType="canteen"
+                onCouponApplied={setAppliedCoupon}
               />
             </div>
 
@@ -212,12 +236,16 @@ const Canteen = () => {
               quantity
             };
           })}
-          totalAmount={getTotalPrice()}
+          totalAmount={getFinalPrice()}
+          originalAmount={appliedCoupon ? getTotalPrice() : undefined}
+          discountAmount={appliedCoupon ? appliedCoupon.discount_amount : undefined}
+          couponCode={appliedCoupon ? appliedCoupon.code : undefined}
           specialInstructions={specialInstructions}
           onBack={() => setShowQRPayment(false)}
           onSuccess={() => {
             setCart({});
             setSpecialInstructions("");
+            setAppliedCoupon(null);
             setShowQRPayment(false);
           }}
         />

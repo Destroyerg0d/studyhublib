@@ -19,6 +19,9 @@ interface OrderItem {
 interface CreateOrderOptions {
   items: OrderItem[];
   totalAmount: number;
+  originalAmount?: number;
+  discountAmount?: number;
+  couponId?: string;
   specialInstructions?: string;
   onSuccess?: (orderDetails: any) => void;
   onError?: (error: any) => void;
@@ -47,6 +50,9 @@ export const useCanteenPayU = () => {
   const createOrder = async ({
     items,
     totalAmount,
+    originalAmount,
+    discountAmount,
+    couponId,
     specialInstructions,
     onSuccess,
     onError,
@@ -79,6 +85,9 @@ export const useCanteenPayU = () => {
         body: {
           items,
           totalAmount,
+          originalAmount,
+          discountAmount,
+          couponId,
           specialInstructions,
         },
         headers: {

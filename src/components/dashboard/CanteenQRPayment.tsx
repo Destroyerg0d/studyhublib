@@ -19,12 +19,15 @@ interface OrderItem {
 interface CanteenQRPaymentProps {
   items: OrderItem[];
   totalAmount: number;
+  originalAmount?: number;
+  discountAmount?: number;
+  couponCode?: string;
   specialInstructions?: string;
   onBack: () => void;
   onSuccess: () => void;
 }
 
-const CanteenQRPayment = ({ items, totalAmount, specialInstructions, onBack, onSuccess }: CanteenQRPaymentProps) => {
+const CanteenQRPayment = ({ items, totalAmount, originalAmount, discountAmount, couponCode, specialInstructions, onBack, onSuccess }: CanteenQRPaymentProps) => {
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
   const [transactionRef, setTransactionRef] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -119,8 +122,8 @@ const CanteenQRPayment = ({ items, totalAmount, specialInstructions, onBack, onS
           order_number: orderNumberData,
           items: items as any,
           total_amount: totalAmount,
-          original_amount: totalAmount,
-          discount_amount: 0,
+          original_amount: originalAmount || totalAmount,
+          discount_amount: discountAmount || 0,
           status: 'payment_verification',
           payment_status: 'verification_pending',
           special_instructions: specialInstructions || null,
@@ -192,6 +195,19 @@ const CanteenQRPayment = ({ items, totalAmount, specialInstructions, onBack, onS
           {specialInstructions && (
             <div className="p-3 bg-blue-50 rounded-lg">
               <p className="text-sm"><strong>Special Instructions:</strong> {specialInstructions}</p>
+            </div>
+          )}
+          
+          {originalAmount && discountAmount && (
+            <div className="pt-2 border-t space-y-2">
+              <div className="flex justify-between items-center text-sm">
+                <span>Subtotal:</span>
+                <span>₹{originalAmount}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm text-green-600">
+                <span>Discount {couponCode && `(${couponCode})`}:</span>
+                <span>-₹{discountAmount}</span>
+              </div>
             </div>
           )}
           
